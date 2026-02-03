@@ -1,11 +1,12 @@
 # Google Calendar 同期スクリプト (GAS)
 
-同じGoogleアカウント内の別カレンダー（共有カレンダーなど）から予定をコピーして同期するGoogle Apps Scriptです。
+同じGoogleアカウント内の複数カレンダー（共有カレンダーなど）から予定をコピーして同期するGoogle Apps Scriptです。
 
 ## 機能
 
-- 共有カレンダーの予定を自分のカレンダーにコピー
+- **複数カレンダー対応**: 複数の共有カレンダーを一括で同期
 - 予定のタイトルを「予定あり」に変換（プライバシー保護）
+- カレンダーごとに異なる色・タイトルを設定可能
 - 自動同期（15分/1時間ごと）
 - 予定の追加・変更・削除を自動追従
 - 終日イベントにも対応
@@ -30,14 +31,30 @@
 
 ### 3. 設定
 
-`Config.gs` を開いて以下を設定:
+`Config.gs` の `getSyncPairs()` を編集して、同期するカレンダーペアを設定:
 
 ```javascript
-// コピー元カレンダーのID（共有カレンダーなど）
-SOURCE_CALENDAR_ID: 'example@group.calendar.google.com',
-
-// コピー先カレンダーのID（'primary' でメインカレンダー）
-DESTINATION_CALENDAR_ID: 'primary',
+function getSyncPairs() {
+  return [
+    // 同期ペア 1
+    {
+      name: '仕事カレンダー',           // 識別用の名前
+      sourceCalendarId: 'work@group.calendar.google.com',
+      destCalendarId: 'primary',       // メインカレンダーにコピー
+      eventTitle: '予定あり',           // コピー後のタイトル
+      eventColor: 8,                   // グレー
+    },
+    // 同期ペア 2
+    {
+      name: 'チームカレンダー',
+      sourceCalendarId: 'team@group.calendar.google.com',
+      destCalendarId: 'primary',
+      eventTitle: '予定あり',
+      eventColor: 7,                   // 青緑
+    },
+    // 必要に応じて追加...
+  ];
+}
 ```
 
 ### 4. 実行とテスト
@@ -53,16 +70,40 @@ DESTINATION_CALENDAR_ID: 'primary',
 - `setupTrigger()` を実行 → 15分ごとに同期
 - `setupHourlyTrigger()` を実行 → 1時間ごとに同期
 
-## 設定オプション
+## 同期ペアの設定項目
+
+| 項目 | 説明 | 例 |
+|------|------|-----|
+| `name` | 識別用の名前（ログ表示用） | `'仕事カレンダー'` |
+| `sourceCalendarId` | コピー元カレンダーID | `'xxx@group.calendar.google.com'` |
+| `destCalendarId` | コピー先カレンダーID | `'primary'` |
+| `eventTitle` | コピー後のタイトル（空文字で元タイトル） | `'予定あり'` |
+| `eventColor` | 予定の色（1-11） | `8` |
+
+## イベントカラー一覧
+
+| 番号 | 色 |
+|------|-----|
+| 1 | ラベンダー |
+| 2 | セージ |
+| 3 | ブドウ |
+| 4 | フラミンゴ |
+| 5 | バナナ |
+| 6 | ミカン |
+| 7 | ピーコック |
+| 8 | グラファイト |
+| 9 | ブルーベリー |
+| 10 | バジル |
+| 11 | トマト |
+
+## 共通設定 (getCommonConfig)
 
 | 設定項目 | 説明 | デフォルト |
 |---------|------|-----------|
-| `COPIED_EVENT_TITLE` | コピーした予定のタイトル | `'予定あり'` |
 | `DAYS_BEFORE` | 過去何日分を同期 | `7` |
 | `DAYS_AFTER` | 未来何日分を同期 | `30` |
-| `EVENT_COLOR` | 予定の色（1-11） | `8`（グレー） |
 | `COPY_ALL_DAY_EVENTS` | 終日イベントもコピー | `true` |
-| `SHOW_AS_BUSY` | 「予定あり」として表示 | `true` |
+| `DEBUG_MODE` | デバッグログを出力 | `false` |
 
 ## 便利な関数
 
@@ -73,7 +114,8 @@ DESTINATION_CALENDAR_ID: 'primary',
 | `setupTrigger()` | 15分ごとの自動同期を設定 |
 | `setupHourlyTrigger()` | 1時間ごとの自動同期を設定 |
 | `removeTriggers()` | 自動同期を停止 |
-| `clearSyncedEvents()` | 同期した予定をすべて削除 |
+| `clearSyncedEvents()` | 全ペアの同期予定を削除 |
+| `clearSyncedEventsForPair(index)` | 特定ペアの同期予定を削除 |
 
 ## 注意事項
 
