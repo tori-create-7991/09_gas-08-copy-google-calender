@@ -63,8 +63,23 @@ clasp push
    - GASエディタ → プロジェクトの設定 → スクリプトID
 
 2. **clasp認証情報を取得**
+
+   **通常の環境（ブラウザあり）:**
    ```bash
    clasp login
+   cat ~/.clasprc.json
+   ```
+
+   **Docker/SSH等のヘッドレス環境:**
+   ```bash
+   # --no-localhost オプションでURLが表示される
+   clasp login --no-localhost
+
+   # 表示されたURLをブラウザがある別のPCで開く
+   # Googleアカウントで認証後、表示される認証コードをコピー
+   # CLIに貼り付けてEnter
+
+   # 認証情報を確認
    cat ~/.clasprc.json
    ```
 
