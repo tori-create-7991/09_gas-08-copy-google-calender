@@ -1,0 +1,22 @@
+{
+  "name": "copy-google-calendar",
+  "version": "1.0.0",
+  "description": "Google Calendar同期スクリプト - 複数の共有カレンダーから予定をコピーして同期",
+  "scripts": {
+    "push": "clasp push",
+    "pull": "clasp pull",
+    "deploy": "clasp deploy",
+    "open": "clasp open",
+    "login": "clasp login"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  },
+  "keywords": [
+    "Google Apps Script",
+    "Google Calendar",
+    "Calendar Sync",
+    "clasp"
+  ],
+  "license": "MIT"
+}
