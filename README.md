@@ -11,13 +11,69 @@
 - 予定の追加・変更・削除を自動追従
 - 終日イベントにも対応
 
+## ファイル構成
+
+```
+├── src/
+│   ├── Code.gs          # メインスクリプト
+│   ├── Config.gs        # 設定ファイル
+│   └── appsscript.json  # GAS設定
+├── .github/workflows/
+│   └── deploy.yml       # 自動デプロイ設定
+├── package.json
+└── README.md
+```
+
 ## セットアップ
 
-### 1. Google Apps Script プロジェクトの作成
+### 方法1: 手動コピー
 
 1. [Google Apps Script](https://script.google.com/) にアクセス
 2. 「新しいプロジェクト」を作成
-3. `Code.gs` と `Config.gs` の内容をコピー
+3. `src/Code.gs` と `src/Config.gs` の内容をコピー
+
+### 方法2: clasp を使用（推奨）
+
+#### ローカル環境でのセットアップ
+
+```bash
+# claspをインストール
+npm install -g @google/clasp
+
+# Googleアカウントでログイン
+clasp login
+
+# 新しいGASプロジェクトを作成
+clasp create --title "Calendar Sync" --rootDir src
+
+# または既存のプロジェクトに接続
+# .clasp.json を作成:
+# {
+#   "scriptId": "YOUR_SCRIPT_ID",
+#   "rootDir": "src"
+# }
+
+# コードをプッシュ
+clasp push
+```
+
+#### GitHub Actions 自動デプロイの設定
+
+1. **GASプロジェクトのスクリプトIDを取得**
+   - GASエディタ → プロジェクトの設定 → スクリプトID
+
+2. **clasp認証情報を取得**
+   ```bash
+   clasp login
+   cat ~/.clasprc.json
+   ```
+
+3. **GitHubリポジトリのSecretsを設定**
+   - `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
+   - `SCRIPT_ID`: GASのスクリプトID
+   - `CLASPRC_JSON`: `~/.clasprc.json` の内容をそのまま貼り付け
+
+4. **mainブランチにpushすると自動デプロイ**
 
 ### 2. カレンダーIDの確認
 
@@ -31,7 +87,7 @@
 
 ### 3. 設定
 
-`Config.gs` の `getSyncPairs()` を編集して、同期するカレンダーペアを設定:
+`src/Config.gs` の `getSyncPairs()` を編集して、同期するカレンダーペアを設定:
 
 ```javascript
 function getSyncPairs() {
