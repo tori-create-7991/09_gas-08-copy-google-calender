@@ -84,7 +84,7 @@ function syncSinglePair(pair, commonConfig) {
 
   // ソースカレンダーの予定を取得
   const sourceEvents = sourceCalendar.getEvents(startDate, endDate);
-  debug('ソースの予定数: ' + sourceEvents.length, commonConfig);
+  debugLog('ソースの予定数: ' + sourceEvents.length, commonConfig);
 
   // コピー先カレンダーの同期済み予定を取得
   const destEvents = destCalendar.getEvents(startDate, endDate);
@@ -92,7 +92,7 @@ function syncSinglePair(pair, commonConfig) {
     const desc = event.getDescription() || '';
     return desc.includes(syncTag);
   });
-  debug('同期済み予定数: ' + syncedEvents.length, commonConfig);
+  debugLog('同期済み予定数: ' + syncedEvents.length, commonConfig);
 
   // 同期済み予定をマップ化（ユニークキーで管理）
   const syncedEventMap = new Map();
@@ -127,12 +127,12 @@ function syncSinglePair(pair, commonConfig) {
       if (needsUpdate(sourceEvent, existingEvent, pair)) {
         updateEvent(existingEvent, sourceEvent, pair, syncTag, uniqueKey, commonConfig);
         result.updated++;
-        debug('更新: ' + sourceEvent.getTitle(), commonConfig);
+        debugLog('更新: ' + sourceEvent.getTitle(), commonConfig);
       }
     } else {
       createEvent(destCalendar, sourceEvent, pair, syncTag, uniqueKey, commonConfig);
       result.created++;
-      debug('作成: ' + sourceEvent.getTitle(), commonConfig);
+      debugLog('作成: ' + sourceEvent.getTitle(), commonConfig);
     }
   });
 
@@ -142,7 +142,7 @@ function syncSinglePair(pair, commonConfig) {
     if (sourceKey && !sourceEventKeys.has(sourceKey)) {
       syncedEvent.deleteEvent();
       result.deleted++;
-      debug('削除: ' + syncedEvent.getTitle(), commonConfig);
+      debugLog('削除: ' + syncedEvent.getTitle(), commonConfig);
     }
   });
 
@@ -416,8 +416,38 @@ function log(message) {
 /**
  * デバッグログ出力
  */
-function debug(message, config) {
+function debugLog(message, config) {
   if (config && config.DEBUG_MODE) {
     Logger.log('[DEBUG] ' + message);
   }
 }
+
+/**
+ * 特定のカレンダーペアのみ同期する（デバッグ用）
+ * @param {number} pairIndex - 同期するペアのインデックス（0から開始）
+ */
+function syncSinglePairByIndex(pairIndex) {
+  const syncPairs = getSyncPairs();
+  const commonConfig = getCommonConfig();
+
+  if (pairIndex < 0 || pairIndex >= syncPairs.length) {
+    Logger.log('無効なインデックスです: ' + pairIndex + ' (0〜' + (syncPairs.length - 1) + 'を指定)');
+    return;
+  }
+
+  const pair = syncPairs[pairIndex];
+  Logger.log('===== デバッグ同期: ' + pair.name + ' =====');
+
+  try {
+    const result = syncSinglePair(pair, commonConfig);
+    Logger.log('完了 - 作成:' + result.created + ' 更新:' + result.updated + ' 削除:' + result.deleted);
+  } catch (error) {
+    Logger.log('エラー: ' + error.message);
+  }
+}
+
+// デバッグ用ショートカット関数
+function debugSync0() { syncSinglePairByIndex(0); }
+function debugSync1() { syncSinglePairByIndex(1); }
+function debugSync2() { syncSinglePairByIndex(2); }
+function debugSync3() { syncSinglePairByIndex(3); }
