@@ -94,22 +94,26 @@ function syncSinglePair(pair, commonConfig) {
   });
   debug('同期済み予定数: ' + syncedEvents.length, commonConfig);
 
-  // 同期済み予定をマップ化
+  // 同期済み予定をマップ化（ユニークキーで管理）
   const syncedEventMap = new Map();
   syncedEvents.forEach(event => {
-    const sourceId = extractSourceEventId(event.getDescription(), syncTag);
-    if (sourceId) {
-      syncedEventMap.set(sourceId, event);
+    const uniqueKey = extractSourceEventId(event.getDescription(), syncTag);
+    if (uniqueKey) {
+      syncedEventMap.set(uniqueKey, event);
     }
   });
 
-  // ソースイベントのIDセット
-  const sourceEventIds = new Set();
+  // ソースイベントのユニークキーセット（繰り返しイベント対応）
+  const sourceEventKeys = new Set();
 
   // 各ソースイベントを処理
   sourceEvents.forEach(sourceEvent => {
-    const sourceEventId = sourceEvent.getId();
-    sourceEventIds.add(sourceEventId);
+    // 繰り返しイベント対応: ID + 開始日時でユニークキーを生成
+    const startTime = sourceEvent.isAllDayEvent()
+      ? sourceEvent.getAllDayStartDate().getTime()
+      : sourceEvent.getStartTime().getTime();
+    const uniqueKey = sourceEvent.getId() + '_' + startTime;
+    sourceEventKeys.add(uniqueKey);
 
     // 終日イベントのスキップチェック
     if (sourceEvent.isAllDayEvent() && !commonConfig.COPY_ALL_DAY_EVENTS) {
@@ -117,16 +121,16 @@ function syncSinglePair(pair, commonConfig) {
       return;
     }
 
-    const existingEvent = syncedEventMap.get(sourceEventId);
+    const existingEvent = syncedEventMap.get(uniqueKey);
 
     if (existingEvent) {
       if (needsUpdate(sourceEvent, existingEvent, pair)) {
-        updateEvent(existingEvent, sourceEvent, pair, syncTag, commonConfig);
+        updateEvent(existingEvent, sourceEvent, pair, syncTag, uniqueKey, commonConfig);
         result.updated++;
         debug('更新: ' + sourceEvent.getTitle(), commonConfig);
       }
     } else {
-      createEvent(destCalendar, sourceEvent, pair, syncTag, commonConfig);
+      createEvent(destCalendar, sourceEvent, pair, syncTag, uniqueKey, commonConfig);
       result.created++;
       debug('作成: ' + sourceEvent.getTitle(), commonConfig);
     }
@@ -134,8 +138,8 @@ function syncSinglePair(pair, commonConfig) {
 
   // 削除された予定を検出
   syncedEvents.forEach(syncedEvent => {
-    const sourceId = extractSourceEventId(syncedEvent.getDescription(), syncTag);
-    if (sourceId && !sourceEventIds.has(sourceId)) {
+    const sourceKey = extractSourceEventId(syncedEvent.getDescription(), syncTag);
+    if (sourceKey && !sourceEventKeys.has(sourceKey)) {
       syncedEvent.deleteEvent();
       result.deleted++;
       debug('削除: ' + syncedEvent.getTitle(), commonConfig);
@@ -150,9 +154,9 @@ function syncSinglePair(pair, commonConfig) {
 /**
  * 新しい予定を作成する
  */
-function createEvent(destCalendar, sourceEvent, pair, syncTag, commonConfig) {
+function createEvent(destCalendar, sourceEvent, pair, syncTag, uniqueKey, commonConfig) {
   const title = pair.eventTitle || sourceEvent.getTitle();
-  const description = buildDescription(sourceEvent, pair, syncTag, commonConfig);
+  const description = buildDescription(sourceEvent, pair, syncTag, uniqueKey, commonConfig);
 
   let newEvent;
 
@@ -187,7 +191,7 @@ function createEvent(destCalendar, sourceEvent, pair, syncTag, commonConfig) {
 /**
  * 既存の予定を更新する
  */
-function updateEvent(existingEvent, sourceEvent, pair, syncTag, commonConfig) {
+function updateEvent(existingEvent, sourceEvent, pair, syncTag, uniqueKey, commonConfig) {
   const title = pair.eventTitle || sourceEvent.getTitle();
 
   existingEvent.setTitle(title);
@@ -198,7 +202,7 @@ function updateEvent(existingEvent, sourceEvent, pair, syncTag, commonConfig) {
     existingEvent.setTime(sourceEvent.getStartTime(), sourceEvent.getEndTime());
   }
 
-  existingEvent.setDescription(buildDescription(sourceEvent, pair, syncTag, commonConfig));
+  existingEvent.setDescription(buildDescription(sourceEvent, pair, syncTag, uniqueKey, commonConfig));
 
   if (pair.eventColor) {
     existingEvent.setColor(String(pair.eventColor));
@@ -240,8 +244,8 @@ function needsUpdate(sourceEvent, existingEvent, pair) {
 /**
  * 予定の説明文を作成する
  */
-function buildDescription(sourceEvent, pair, syncTag, commonConfig) {
-  let description = syncTag + ' SourceID:' + sourceEvent.getId();
+function buildDescription(sourceEvent, pair, syncTag, uniqueKey, commonConfig) {
+  let description = syncTag + ' SourceID:' + uniqueKey;
 
   if (commonConfig.INCLUDE_ORIGINAL_LINK) {
     const eventUrl = 'https://calendar.google.com/calendar/event?eid=' +
