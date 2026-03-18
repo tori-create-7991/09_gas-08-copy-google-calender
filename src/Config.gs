@@ -49,7 +49,7 @@ function getCommonConfig() {
     SYNC_TAG: '[CalendarSync]',
 
     // 終日イベントもコピーするか
-    COPY_ALL_DAY_EVENTS: true,
+    COPY_ALL_DAY_EVENTS: false,
 
     // コピー先の予定を「予定あり」として表示するか
     SHOW_AS_BUSY: true,
