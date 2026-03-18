@@ -35,6 +35,48 @@ jobs:
             "rootDir": "src"
           }' > .clasp.json
 
+      - name: Inject calendar sync pairs from secret
+        if: ${{ env.SYNC_PAIRS_JSON != '' }}
+        run: |
+          node -e '
+            var fs = require("fs");
+            var pairs = JSON.parse(process.env.SYNC_PAIRS_JSON);
+            var config = fs.readFileSync("src/Config.gs", "utf8");
+            var indent = "    ";
+            var pairsCode = pairs.map(function(p) {
+              var lines = [
+                indent + "{",
+                indent + "  name: " + JSON.stringify(p.name) + ",",
+                indent + "  sourceCalendarId: " + JSON.stringify(p.sourceCalendarId) + ",",
+                indent + "  destCalendarId: " + JSON.stringify(p.destCalendarId) + ","
+              ];
+              if (p.eventTitle != null) {
+                lines.push(indent + "  eventTitle: " + JSON.stringify(p.eventTitle) + ",");
+              }
+              if (p.eventColor != null) {
+                lines.push(indent + "  eventColor: " + p.eventColor + ",");
+              }
+              lines.push(indent + "}");
+              return lines.join("\n");
+            }).join(",\n");
+            var replacement =
+              "// --- SYNC_PAIRS_START ---\n" +
+              "function getSyncPairs() {\n" +
+              "  return [\n" +
+              pairsCode + "\n" +
+              "  ];\n" +
+              "}\n" +
+              "// --- SYNC_PAIRS_END ---";
+            config = config.replace(
+              /\/\/ --- SYNC_PAIRS_START ---[\s\S]*?\/\/ --- SYNC_PAIRS_END ---/,
+              replacement
+            );
+            fs.writeFileSync("src/Config.gs", config);
+            console.log("Injected " + pairs.length + " sync pair(s) from SYNC_PAIRS_JSON");
+          '
+        env:
+          SYNC_PAIRS_JSON: ${{ secrets.SYNC_PAIRS_JSON }}
+
       - name: Push to Google Apps Script
         run: clasp push --force
 

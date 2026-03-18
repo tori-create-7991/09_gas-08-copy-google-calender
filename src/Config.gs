@@ -7,39 +7,32 @@
 /**
  * 同期するカレンダーの設定を取得する
  * 複数のカレンダーペアを設定できます
+ *
+ * CI デプロイ時は GitHub Secret SYNC_PAIRS_JSON の値で自動置換されます。
+ * ローカル開発時はこのファイルを直接編集してください。
+ *
  * @returns {Array} 同期設定の配列
  */
+// --- SYNC_PAIRS_START ---
 function getSyncPairs() {
   return [
-    // ===== 同期ペア 1 =====
     {
-      name: '共有カレンダー1',  // 識別用の名前（ログ表示用）
+      name: '共有カレンダー1',
       sourceCalendarId: 'ここにコピー元カレンダーID1を入力',
-      destCalendarId: 'primary',  // 'primary' でメインカレンダー
-      eventTitle: '予定あり',     // 空文字 '' で元のタイトルを使用
-      eventColor: 8,              // 1-11 または null
+      destCalendarId: 'primary',
+      eventTitle: '予定あり',
+      eventColor: 8,
     },
-
-    // ===== 同期ペア 2 =====
     {
       name: '共有カレンダー2',
       sourceCalendarId: 'ここにコピー元カレンダーID2を入力',
       destCalendarId: 'primary',
       eventTitle: '予定あり',
-      eventColor: 7,  // ピーコック（青緑）
+      eventColor: 7,
     },
-
-    // ===== 同期ペア 3 =====
-    // 必要に応じて追加してください
-    // {
-    //   name: '共有カレンダー3',
-    //   sourceCalendarId: 'calendar3@group.calendar.google.com',
-    //   destCalendarId: 'primary',
-    //   eventTitle: '外出',
-    //   eventColor: 6,  // ミカン（オレンジ）
-    // },
   ];
 }
+// --- SYNC_PAIRS_END ---
 
 /**
  * 共通設定を取得する

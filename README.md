@@ -87,8 +87,43 @@ clasp push
    - `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
    - `SCRIPT_ID`: GASのスクリプトID
    - `CLASPRC_JSON`: `~/.clasprc.json` の内容をそのまま貼り付け
+   - `SYNC_PAIRS_JSON`: 同期ペア設定のJSON（下記参照）
 
-4. **mainブランチにpushすると自動デプロイ**
+4. **`SYNC_PAIRS_JSON` の設定**
+
+   カレンダーIDなどの機密情報はGitHubリポジトリに含めず、Secretsから注入します。
+   以下のJSON形式で設定してください:
+
+   ```json
+   [
+     {
+       "name": "仕事カレンダー",
+       "sourceCalendarId": "work@group.calendar.google.com",
+       "destCalendarId": "primary",
+       "eventTitle": "予定あり",
+       "eventColor": 8
+     },
+     {
+       "name": "チームカレンダー",
+       "sourceCalendarId": "team@group.calendar.google.com",
+       "destCalendarId": "primary",
+       "eventTitle": "予定あり",
+       "eventColor": 7
+     }
+   ]
+   ```
+
+   | フィールド | 必須 | 説明 |
+   |-----------|------|------|
+   | `name` | ○ | 識別用の名前（ログ表示用） |
+   | `sourceCalendarId` | ○ | コピー元カレンダーID（メールアドレス形式） |
+   | `destCalendarId` | ○ | コピー先カレンダーID（`"primary"` でメインカレンダー） |
+   | `eventTitle` | | コピー後のタイトル（省略で元のタイトルを使用） |
+   | `eventColor` | | 予定の色 1-11（省略でデフォルト色） |
+
+   > **Note**: `SYNC_PAIRS_JSON` が未設定の場合、`src/Config.gs` のデフォルト値がそのまま使われます。
+
+5. **mainブランチにpushすると自動デプロイ**
 
 ### 2. カレンダーIDの確認
 
