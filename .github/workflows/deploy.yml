@@ -50,6 +50,8 @@ jobs:
               lines.push(I3 + "calendarId: " + JSON.stringify(d.calendarId) + ",");
               if (d.eventTitle != null) lines.push(I3 + "eventTitle: " + JSON.stringify(d.eventTitle) + ",");
               if (d.eventColor != null) lines.push(I3 + "eventColor: " + d.eventColor + ",");
+              if (d.showAsBusy != null) lines.push(I3 + "showAsBusy: " + d.showAsBusy + ",");
+              if (d.includeOriginalLink != null) lines.push(I3 + "includeOriginalLink: " + d.includeOriginalLink + ",");
               lines.push(I2 + "}");
               return lines.join("\n");
             }

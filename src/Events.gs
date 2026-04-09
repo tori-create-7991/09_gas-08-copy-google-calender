@@ -7,7 +7,8 @@
  */
 function createEvent(destCalendar, sourceEvent, pair, syncTag, uniqueKey, commonConfig) {
   const title = pair.eventTitle || sourceEvent.getTitle();
-  const description = buildDescription(sourceEvent, pair, syncTag, uniqueKey, commonConfig);
+  const effectiveConfig = buildEffectiveConfig(commonConfig, pair);
+  const description = buildDescription(sourceEvent, pair, syncTag, uniqueKey, effectiveConfig);
 
   let newEvent;
 
@@ -36,6 +37,8 @@ function createEvent(destCalendar, sourceEvent, pair, syncTag, uniqueKey, common
     newEvent.setColor(String(pair.eventColor));
   }
 
+  applyVisibilityConfig(newEvent, effectiveConfig);
+
   return newEvent;
 }
 
@@ -44,6 +47,7 @@ function createEvent(destCalendar, sourceEvent, pair, syncTag, uniqueKey, common
  */
 function updateEvent(existingEvent, sourceEvent, pair, syncTag, uniqueKey, commonConfig) {
   const title = pair.eventTitle || sourceEvent.getTitle();
+  const effectiveConfig = buildEffectiveConfig(commonConfig, pair);
 
   existingEvent.setTitle(title);
 
@@ -53,17 +57,19 @@ function updateEvent(existingEvent, sourceEvent, pair, syncTag, uniqueKey, commo
     existingEvent.setTime(sourceEvent.getStartTime(), sourceEvent.getEndTime());
   }
 
-  existingEvent.setDescription(buildDescription(sourceEvent, pair, syncTag, uniqueKey, commonConfig));
+  existingEvent.setDescription(buildDescription(sourceEvent, pair, syncTag, uniqueKey, effectiveConfig));
 
   if (pair.eventColor) {
     existingEvent.setColor(String(pair.eventColor));
   }
+
+  applyVisibilityConfig(existingEvent, effectiveConfig);
 }
 
 /**
  * 予定の更新が必要かチェックする
  */
-function needsUpdate(sourceEvent, existingEvent, pair) {
+function needsUpdate(sourceEvent, existingEvent, pair, commonConfig, syncTag, uniqueKey) {
   const expectedTitle = pair.eventTitle || sourceEvent.getTitle();
 
   if (existingEvent.getTitle() !== expectedTitle) {
@@ -89,6 +95,27 @@ function needsUpdate(sourceEvent, existingEvent, pair) {
     }
   }
 
+  // description (includeOriginalLink 差分など) の差分を検出
+  const effectiveConfig = buildEffectiveConfig(commonConfig, pair);
+  const expectedDesc = buildDescription(sourceEvent, pair, syncTag, uniqueKey, effectiveConfig);
+  if ((existingEvent.getDescription() || '') !== expectedDesc) {
+    return true;
+  }
+
+  // busy/free の差分を検出
+  if (effectiveConfig.SHOW_AS_BUSY != null) {
+    try {
+      const expectedTransparency = effectiveConfig.SHOW_AS_BUSY
+        ? CalendarApp.EventTransparency.OPAQUE
+        : CalendarApp.EventTransparency.TRANSPARENT;
+      if (existingEvent.getTransparency && existingEvent.getTransparency() !== expectedTransparency) {
+        return true;
+      }
+    } catch (e) {
+      // ignore (API unavailable)
+    }
+  }
+
   return false;
 }
 
@@ -105,6 +132,32 @@ function buildDescription(sourceEvent, pair, syncTag, uniqueKey, commonConfig) {
   }
 
   return description;
+}
+
+/**
+ * 共通設定 + コピー先設定をマージした設定を作る
+ */
+function buildEffectiveConfig(commonConfig, pair) {
+  return Object.assign({}, commonConfig, {
+    SHOW_AS_BUSY: pair.showAsBusy != null ? pair.showAsBusy : commonConfig.SHOW_AS_BUSY,
+    INCLUDE_ORIGINAL_LINK: pair.includeOriginalLink != null ? pair.includeOriginalLink : commonConfig.INCLUDE_ORIGINAL_LINK,
+  });
+}
+
+/**
+ * 予定の「予定あり/空き」を反映する
+ */
+function applyVisibilityConfig(event, config) {
+  try {
+    if (config.SHOW_AS_BUSY == null) {
+      return;
+    }
+    event.setTransparency(
+      config.SHOW_AS_BUSY ? CalendarApp.EventTransparency.OPAQUE : CalendarApp.EventTransparency.TRANSPARENT
+    );
+  } catch (e) {
+    // ignore
+  }
 }
 
 /**

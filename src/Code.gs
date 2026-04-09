@@ -124,7 +124,7 @@ function syncSinglePair(pair, commonConfig) {
     const existingEvent = syncedEventMap.get(uniqueKey);
 
     if (existingEvent) {
-      if (needsUpdate(sourceEvent, existingEvent, pair)) {
+      if (needsUpdate(sourceEvent, existingEvent, pair, commonConfig, syncTag, uniqueKey)) {
         updateEvent(existingEvent, sourceEvent, pair, syncTag, uniqueKey, commonConfig);
         result.updated++;
         debugLog('更新: ' + sourceEvent.getTitle(), commonConfig);

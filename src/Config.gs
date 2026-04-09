@@ -9,6 +9,7 @@
  *
  * destinations 配列でコピー先ごとに calendarId / eventTitle / eventColor を個別指定可能。
  * eventTitle / eventColor を省略するとソース側のデフォルト値が使われる。
+ * showAsBusy / includeOriginalLink もコピー先ごとに指定可能（省略で共通設定にフォールバック）。
  *
  * 後方互換: destCalendarId（単数）/ destCalendarIds（配列）も引き続き使用可能。
  *
@@ -27,7 +28,7 @@ function getSyncPairsRaw() {
       eventColor: 8,
       destinations: [
         { calendarId: 'primary' },
-        { calendarId: 'shared@group.calendar.google.com', eventTitle: '外出', eventColor: 6 },
+        { calendarId: 'shared@group.calendar.google.com', eventTitle: '外出', eventColor: 6, showAsBusy: true, includeOriginalLink: false },
       ],
     },
     {
@@ -58,6 +59,8 @@ function getSyncPairs() {
           calendarId: d.calendarId,
           eventTitle: d.eventTitle != null ? d.eventTitle : pair.eventTitle,
           eventColor: d.eventColor != null ? d.eventColor : pair.eventColor,
+          showAsBusy: d.showAsBusy,
+          includeOriginalLink: d.includeOriginalLink,
         };
       });
     } else {
@@ -73,6 +76,8 @@ function getSyncPairs() {
         destCalendarId: dest.calendarId,
         eventTitle: dest.eventTitle,
         eventColor: dest.eventColor,
+        showAsBusy: dest.showAsBusy,
+        includeOriginalLink: dest.includeOriginalLink,
       });
     });
   });

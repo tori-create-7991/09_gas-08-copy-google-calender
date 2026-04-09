@@ -102,8 +102,8 @@ clasp push
        "eventTitle": "予定あり",
        "eventColor": 8,
        "destinations": [
-         { "calendarId": "primary" },
-         { "calendarId": "shared@group.calendar.google.com", "eventTitle": "外出", "eventColor": 6 }
+         { "calendarId": "primary", "showAsBusy": true, "includeOriginalLink": false },
+         { "calendarId": "shared@group.calendar.google.com", "eventTitle": "外出", "eventColor": 6, "showAsBusy": false, "includeOriginalLink": true }
        ]
      },
      {
@@ -135,6 +135,8 @@ clasp push
    | `calendarId` | ○ | コピー先カレンダーID（`"primary"` でメインカレンダー） |
    | `eventTitle` | | このコピー先専用のタイトル（省略でソース側のデフォルトを使用） |
    | `eventColor` | | このコピー先専用の色（省略でソース側のデフォルトを使用） |
+   | `showAsBusy` | | このコピー先を「予定あり（busy）」として表示するか（省略で共通設定の `SHOW_AS_BUSY` を使用） |
+   | `includeOriginalLink` | | 元の予定リンクを説明文に含めるか（省略で共通設定の `INCLUDE_ORIGINAL_LINK` を使用） |
 
    > **Note**: `SYNC_PAIRS_JSON` が未設定の場合、`src/Config.gs` のデフォルト値がそのまま使われます。
 
