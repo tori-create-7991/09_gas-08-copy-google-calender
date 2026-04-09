@@ -89,6 +89,8 @@ clasp push
    - `CLASPRC_JSON`: `~/.clasprc.json` の内容をそのまま貼り付け
    - `SYNC_PAIRS_JSON`: 同期ペア設定のJSON（下記参照）
    - `INVITE_ROUTING_JSON`: 招待イベント振り分け設定のJSON（下記参照）
+   - `INVITE_COPY_JSON`: 招待イベントコピー（予定あり化）設定のJSON（下記参照）
+   - `INVITE_ROUTING_JSON`: 招待イベント振り分け設定のJSON（下記参照）
 
 4. **`SYNC_PAIRS_JSON` の設定**
 
@@ -190,6 +192,50 @@ Google カレンダーの「招待イベント」は、受け取ると `primary`
 
 - 手動: `routeInvites()` を実行
 - 自動: `setupInviteRoutingTrigger()` を実行（15分ごと）
+
+## 招待イベントのコピー（予定あり化）
+
+外部主催の招待（あなたが参加者のイベント）は、Calendar API の `Events.move` が失敗することがあります。\n
+その場合でも「メイン（primary）に招待が入る」こと自体は変えられないため、代替として **招待を条件に応じて別カレンダーへ「予定あり」としてコピー**できます。
+
+### 前提（必須）
+
+- GAS エディタの **「サービス」→「高度な Google サービス」**で **Calendar API** を有効化
+- 併せて **Google Cloud Console 側の「Google Calendar API」**も有効化
+
+### `INVITE_COPY_JSON` の設定例（主催者ドメインで判定）
+
+```json
+{
+  "enabled": true,
+  "sourceCalendarId": "primary",
+  "daysBefore": 0,
+  "daysAfter": 30,
+  "defaultDestCalendarId": "your-invite-dest@group.calendar.google.com",
+  "eventTitle": "予定あり",
+  "eventColor": 8,
+  "showAsBusy": true,
+  "includeOriginalLink": false,
+  "rules": [
+    {
+      "name": "from-givery",
+      "destCalendarId": "29c20ada...@group.calendar.google.com",
+      "organizerEmailEndsWith": "@givery.co.jp"
+    },
+    {
+      "name": "from-ms-engineer",
+      "destCalendarId": "e060cc9d...@group.calendar.google.com",
+      "organizerEmailEndsWith": "@ms-engineer.jp",
+      "includeOriginalLink": true
+    }
+  ]
+}
+```
+
+### 実行方法
+
+- `syncCalendars()` 実行時に `enabled=true` なら **同期開始時に1回だけ** `copyInvitesByRules()` が動きます
+- 単体で動かす場合は `copyInvitesByRules()` を手動実行
 
 ### 2. カレンダーIDの確認
 

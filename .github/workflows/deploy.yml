@@ -118,6 +118,29 @@ jobs:
         env:
           INVITE_ROUTING_JSON: ${{ secrets.INVITE_ROUTING_JSON }}
 
+      - name: Inject invite copy config from secret
+        if: ${{ env.INVITE_COPY_JSON != '' }}
+        run: |
+          node -e '
+            var fs = require("fs");
+            var cfg = JSON.parse(process.env.INVITE_COPY_JSON);
+            var configGs = fs.readFileSync("src/Config.gs", "utf8");
+            var replacement =
+              "// --- INVITE_COPY_START ---\n" +
+              "function getInviteCopyConfig() {\n" +
+              "  return " + JSON.stringify(cfg, null, 2) + ";\n" +
+              "}\n" +
+              "// --- INVITE_COPY_END ---";
+            configGs = configGs.replace(
+              /\/\/ --- INVITE_COPY_START ---[\s\S]*?\/\/ --- INVITE_COPY_END ---/,
+              replacement
+            );
+            fs.writeFileSync("src/Config.gs", configGs);
+            console.log("Injected invite copy config from INVITE_COPY_JSON");
+          '
+        env:
+          INVITE_COPY_JSON: ${{ secrets.INVITE_COPY_JSON }}
+
       - name: Push to Google Apps Script
         run: clasp push --force
 

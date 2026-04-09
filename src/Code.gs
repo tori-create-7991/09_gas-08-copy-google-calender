@@ -32,6 +32,16 @@ function syncCalendars() {
     log('招待振り分けでエラー: ' + e.message);
   }
 
+  // 招待イベントのコピー（必要なら同期開始時に1回だけ実行）
+  try {
+    const inviteCopyConfig = getInviteCopyConfig();
+    if (inviteCopyConfig && inviteCopyConfig.enabled) {
+      copyInvitesByRules();
+    }
+  } catch (e) {
+    log('招待コピーでエラー: ' + e.message);
+  }
+
   let totalCreated = 0;
   let totalUpdated = 0;
   let totalDeleted = 0;
