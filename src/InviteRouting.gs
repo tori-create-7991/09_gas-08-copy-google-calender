@@ -95,6 +95,10 @@ function findInviteRouteMatch(ev, config) {
  * - organizerIsSelf: boolean
  * - organizerEmailContains: string
  * - organizerEmailEndsWith: string
+ * - attendeeIsSelf: boolean
+ * - attendeeEmailEquals: string
+ * - attendeeEmailContains: string
+ * - attendeeEmailEndsWith: string
  * - summaryContains: string
  */
 function matchesInviteRule(ev, rule) {
@@ -111,6 +115,34 @@ function matchesInviteRule(ev, rule) {
   if (rule.organizerEmailEndsWith) {
     var suffix = String(rule.organizerEmailEndsWith);
     if (!organizerEmail || organizerEmail.slice(-suffix.length) !== suffix) return false;
+  }
+
+  // attendees
+  var attendees = Array.isArray(ev.attendees) ? ev.attendees : [];
+  if (rule.attendeeIsSelf != null) {
+    var hasSelf = attendees.some(function(a) { return !!(a && a.self); });
+    if (hasSelf !== !!rule.attendeeIsSelf) return false;
+  }
+  if (rule.attendeeEmailEquals || rule.attendeeEmailContains || rule.attendeeEmailEndsWith) {
+    var attendeeEmails = attendees
+      .map(function(a) { return (a && a.email) ? String(a.email) : ''; })
+      .filter(function(s) { return !!s; });
+
+    if (rule.attendeeEmailEquals) {
+      var target = String(rule.attendeeEmailEquals);
+      var okEq = attendeeEmails.some(function(e) { return e === target; });
+      if (!okEq) return false;
+    }
+    if (rule.attendeeEmailContains) {
+      var sub = String(rule.attendeeEmailContains);
+      var okContains = attendeeEmails.some(function(e) { return e.indexOf(sub) !== -1; });
+      if (!okContains) return false;
+    }
+    if (rule.attendeeEmailEndsWith) {
+      var suf = String(rule.attendeeEmailEndsWith);
+      var okEnds = attendeeEmails.some(function(e) { return e.slice(-suf.length) === suf; });
+      if (!okEnds) return false;
+    }
   }
 
   var summary = ev.summary ? String(ev.summary) : '';

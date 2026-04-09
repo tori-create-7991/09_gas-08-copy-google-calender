@@ -180,6 +180,10 @@ Google カレンダーの「招待イベント」は、受け取ると `primary`
 - `organizerIsSelf` (boolean)
 - `organizerEmailContains` (string)
 - `organizerEmailEndsWith` (string)
+- `attendeeIsSelf` (boolean)
+- `attendeeEmailEquals` (string)
+- `attendeeEmailContains` (string)
+- `attendeeEmailEndsWith` (string)
 - `summaryContains` (string)
 
 ### 実行方法
