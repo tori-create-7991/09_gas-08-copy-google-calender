@@ -99,27 +99,44 @@ clasp push
      {
        "name": "仕事カレンダー",
        "sourceCalendarId": "work@group.calendar.google.com",
-       "destCalendarId": "primary",
        "eventTitle": "予定あり",
-       "eventColor": 8
+       "eventColor": 8,
+       "destinations": [
+         { "calendarId": "primary", "showAsBusy": true, "includeOriginalLink": false },
+         { "calendarId": "shared@group.calendar.google.com", "eventTitle": "外出", "eventColor": 6, "showAsBusy": false, "includeOriginalLink": true }
+       ]
      },
      {
        "name": "チームカレンダー",
        "sourceCalendarId": "team@group.calendar.google.com",
-       "destCalendarId": "primary",
-       "eventTitle": "予定あり",
-       "eventColor": 7
+       "eventTitle": "",
+       "eventColor": 7,
+       "destinations": [
+         { "calendarId": "primary" }
+       ]
      }
    ]
    ```
+
+   #### ソース側フィールド
 
    | フィールド | 必須 | 説明 |
    |-----------|------|------|
    | `name` | ○ | 識別用の名前（ログ表示用） |
    | `sourceCalendarId` | ○ | コピー元カレンダーID（メールアドレス形式） |
-   | `destCalendarId` | ○ | コピー先カレンダーID（`"primary"` でメインカレンダー） |
-   | `eventTitle` | | コピー後のタイトル（省略で元のタイトルを使用） |
-   | `eventColor` | | 予定の色 1-11（省略でデフォルト色） |
+   | `destinations` | ○ | コピー先の配列（下記参照） |
+   | `eventTitle` | | デフォルトのタイトル（空文字 `""` で元のタイトルを使用） |
+   | `eventColor` | | デフォルトの色 1-11（省略でデフォルト色） |
+
+   #### destinations 内のフィールド
+
+   | フィールド | 必須 | 説明 |
+   |-----------|------|------|
+   | `calendarId` | ○ | コピー先カレンダーID（`"primary"` でメインカレンダー） |
+   | `eventTitle` | | このコピー先専用のタイトル（省略でソース側のデフォルトを使用） |
+   | `eventColor` | | このコピー先専用の色（省略でソース側のデフォルトを使用） |
+   | `showAsBusy` | | このコピー先を「予定あり（busy）」として表示するか（省略で共通設定の `SHOW_AS_BUSY` を使用） |
+   | `includeOriginalLink` | | 元の予定リンクを説明文に含めるか（省略で共通設定の `INCLUDE_ORIGINAL_LINK` を使用） |
 
    > **Note**: `SYNC_PAIRS_JSON` が未設定の場合、`src/Config.gs` のデフォルト値がそのまま使われます。
 
@@ -137,28 +154,30 @@ clasp push
 
 ### 3. 設定
 
-`src/Config.gs` の `getSyncPairs()` を編集して、同期するカレンダーペアを設定:
+`src/Config.gs` の `getSyncPairsRaw()` を編集して、同期するカレンダーペアを設定:
 
 ```javascript
-function getSyncPairs() {
+function getSyncPairsRaw() {
   return [
-    // 同期ペア 1
     {
-      name: '仕事カレンダー',           // 識別用の名前
+      name: '仕事カレンダー',
       sourceCalendarId: 'work@group.calendar.google.com',
-      destCalendarId: 'primary',       // メインカレンダーにコピー
-      eventTitle: '予定あり',           // コピー後のタイトル
-      eventColor: 8,                   // グレー
+      eventTitle: '予定あり',    // デフォルトのタイトル
+      eventColor: 8,             // デフォルトの色
+      destinations: [
+        { calendarId: 'primary' },
+        { calendarId: 'shared@group.calendar.google.com', eventTitle: '外出', eventColor: 6 },
+      ],
     },
-    // 同期ペア 2
     {
       name: 'チームカレンダー',
       sourceCalendarId: 'team@group.calendar.google.com',
-      destCalendarId: 'primary',
-      eventTitle: '予定あり',
-      eventColor: 7,                   // 青緑
+      eventTitle: '',            // 空文字で元のタイトルを使用
+      eventColor: 7,
+      destinations: [
+        { calendarId: 'primary' },
+      ],
     },
-    // 必要に応じて追加...
   ];
 }
 ```
@@ -182,9 +201,17 @@ function getSyncPairs() {
 |------|------|-----|
 | `name` | 識別用の名前（ログ表示用） | `'仕事カレンダー'` |
 | `sourceCalendarId` | コピー元カレンダーID | `'xxx@group.calendar.google.com'` |
-| `destCalendarId` | コピー先カレンダーID | `'primary'` |
-| `eventTitle` | コピー後のタイトル（空文字で元タイトル） | `'予定あり'` |
-| `eventColor` | 予定の色（1-11） | `8` |
+| `destinations` | コピー先の配列（コピー先ごとに設定可能） | 下記参照 |
+| `eventTitle` | デフォルトのタイトル（空文字で元タイトル） | `'予定あり'` |
+| `eventColor` | デフォルトの色（1-11） | `8` |
+
+**destinations 内の設定項目:**
+
+| 項目 | 説明 | 例 |
+|------|------|-----|
+| `calendarId` | コピー先カレンダーID | `'primary'` |
+| `eventTitle` | このコピー先専用のタイトル（省略でデフォルト値） | `'外出'` |
+| `eventColor` | このコピー先専用の色（省略でデフォルト値） | `6` |
 
 ## イベントカラー一覧
 
