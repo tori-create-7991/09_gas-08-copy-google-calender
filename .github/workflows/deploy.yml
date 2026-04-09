@@ -44,11 +44,12 @@ jobs:
             var config = fs.readFileSync("src/Config.gs", "utf8");
             var indent = "    ";
             var pairsCode = pairs.map(function(p) {
+              var destIds = p.destCalendarIds || (p.destCalendarId ? [p.destCalendarId] : []);
               var lines = [
                 indent + "{",
                 indent + "  name: " + JSON.stringify(p.name) + ",",
                 indent + "  sourceCalendarId: " + JSON.stringify(p.sourceCalendarId) + ",",
-                indent + "  destCalendarId: " + JSON.stringify(p.destCalendarId) + ","
+                indent + "  destCalendarIds: " + JSON.stringify(destIds) + ","
               ];
               if (p.eventTitle != null) {
                 lines.push(indent + "  eventTitle: " + JSON.stringify(p.eventTitle) + ",");
@@ -61,7 +62,7 @@ jobs:
             }).join(",\n");
             var replacement =
               "// --- SYNC_PAIRS_START ---\n" +
-              "function getSyncPairs() {\n" +
+              "function getSyncPairsRaw() {\n" +
               "  return [\n" +
               pairsCode + "\n" +
               "  ];\n" +

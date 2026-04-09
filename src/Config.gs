@@ -6,33 +6,57 @@
 
 /**
  * 同期するカレンダーの設定を取得する
- * 複数のカレンダーペアを設定できます
+ *
+ * destCalendarIds（配列）で複数のコピー先を指定可能。
+ * destCalendarId（単数）も後方互換で使用可能。
  *
  * CI デプロイ時は GitHub Secret SYNC_PAIRS_JSON の値で自動置換されます。
  * ローカル開発時はこのファイルを直接編集してください。
  *
- * @returns {Array} 同期設定の配列
+ * @returns {Array} 同期設定の配列（展開済み）
  */
 // --- SYNC_PAIRS_START ---
-function getSyncPairs() {
+function getSyncPairsRaw() {
   return [
     {
       name: '共有カレンダー1',
       sourceCalendarId: 'ここにコピー元カレンダーID1を入力',
-      destCalendarId: 'primary',
+      destCalendarIds: ['primary'],
       eventTitle: '予定あり',
       eventColor: 8,
     },
     {
       name: '共有カレンダー2',
       sourceCalendarId: 'ここにコピー元カレンダーID2を入力',
-      destCalendarId: 'primary',
+      destCalendarIds: ['primary'],
       eventTitle: '予定あり',
       eventColor: 7,
     },
   ];
 }
 // --- SYNC_PAIRS_END ---
+
+/**
+ * destCalendarIds を個別の destCalendarId ペアに展開する
+ * destCalendarId（単数）との後方互換あり
+ */
+function getSyncPairs() {
+  var raw = getSyncPairsRaw();
+  var expanded = [];
+  raw.forEach(function(pair) {
+    var destIds = pair.destCalendarIds || [pair.destCalendarId];
+    destIds.forEach(function(destId) {
+      expanded.push({
+        name: pair.name + (destIds.length > 1 ? ' → ' + destId.substring(0, 8) : ''),
+        sourceCalendarId: pair.sourceCalendarId,
+        destCalendarId: destId,
+        eventTitle: pair.eventTitle,
+        eventColor: pair.eventColor,
+      });
+    });
+  });
+  return expanded;
+}
 
 /**
  * 共通設定を取得する
