@@ -42,22 +42,37 @@ jobs:
             var fs = require("fs");
             var pairs = JSON.parse(process.env.SYNC_PAIRS_JSON);
             var config = fs.readFileSync("src/Config.gs", "utf8");
-            var indent = "    ";
+            var I = "    ";
+            var I2 = "      ";
+            var I3 = "        ";
+            function formatDest(d) {
+              var lines = [I2 + "{"];
+              lines.push(I3 + "calendarId: " + JSON.stringify(d.calendarId) + ",");
+              if (d.eventTitle != null) lines.push(I3 + "eventTitle: " + JSON.stringify(d.eventTitle) + ",");
+              if (d.eventColor != null) lines.push(I3 + "eventColor: " + d.eventColor + ",");
+              lines.push(I2 + "}");
+              return lines.join("\n");
+            }
             var pairsCode = pairs.map(function(p) {
-              var destIds = p.destCalendarIds || (p.destCalendarId ? [p.destCalendarId] : []);
-              var lines = [
-                indent + "{",
-                indent + "  name: " + JSON.stringify(p.name) + ",",
-                indent + "  sourceCalendarId: " + JSON.stringify(p.sourceCalendarId) + ",",
-                indent + "  destCalendarIds: " + JSON.stringify(destIds) + ","
-              ];
-              if (p.eventTitle != null) {
-                lines.push(indent + "  eventTitle: " + JSON.stringify(p.eventTitle) + ",");
+              var dests = p.destinations;
+              if (!dests) {
+                var ids = p.destCalendarIds || (p.destCalendarId ? [p.destCalendarId] : []);
+                dests = ids.map(function(id) {
+                  var d = { calendarId: id };
+                  if (p.eventTitle != null) d.eventTitle = p.eventTitle;
+                  if (p.eventColor != null) d.eventColor = p.eventColor;
+                  return d;
+                });
               }
-              if (p.eventColor != null) {
-                lines.push(indent + "  eventColor: " + p.eventColor + ",");
-              }
-              lines.push(indent + "}");
+              var lines = [I + "{"];
+              lines.push(I + "  name: " + JSON.stringify(p.name) + ",");
+              lines.push(I + "  sourceCalendarId: " + JSON.stringify(p.sourceCalendarId) + ",");
+              if (p.eventTitle != null) lines.push(I + "  eventTitle: " + JSON.stringify(p.eventTitle) + ",");
+              if (p.eventColor != null) lines.push(I + "  eventColor: " + p.eventColor + ",");
+              lines.push(I + "  destinations: [");
+              lines.push(dests.map(formatDest).join(",\n"));
+              lines.push(I + "  ],");
+              lines.push(I + "}");
               return lines.join("\n");
             }).join(",\n");
             var replacement =

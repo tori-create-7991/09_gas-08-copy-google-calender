@@ -7,8 +7,10 @@
 /**
  * 同期するカレンダーの設定を取得する
  *
- * destCalendarIds（配列）で複数のコピー先を指定可能。
- * destCalendarId（単数）も後方互換で使用可能。
+ * destinations 配列でコピー先ごとに calendarId / eventTitle / eventColor を個別指定可能。
+ * eventTitle / eventColor を省略するとソース側のデフォルト値が使われる。
+ *
+ * 後方互換: destCalendarId（単数）/ destCalendarIds（配列）も引き続き使用可能。
  *
  * CI デプロイ時は GitHub Secret SYNC_PAIRS_JSON の値で自動置換されます。
  * ローカル開発時はこのファイルを直接編集してください。
@@ -21,37 +23,56 @@ function getSyncPairsRaw() {
     {
       name: '共有カレンダー1',
       sourceCalendarId: 'ここにコピー元カレンダーID1を入力',
-      destCalendarIds: ['primary'],
       eventTitle: '予定あり',
       eventColor: 8,
+      destinations: [
+        { calendarId: 'primary' },
+        { calendarId: 'shared@group.calendar.google.com', eventTitle: '外出', eventColor: 6 },
+      ],
     },
     {
       name: '共有カレンダー2',
       sourceCalendarId: 'ここにコピー元カレンダーID2を入力',
-      destCalendarIds: ['primary'],
       eventTitle: '予定あり',
       eventColor: 7,
+      destinations: [
+        { calendarId: 'primary' },
+      ],
     },
   ];
 }
 // --- SYNC_PAIRS_END ---
 
 /**
- * destCalendarIds を個別の destCalendarId ペアに展開する
- * destCalendarId（単数）との後方互換あり
+ * destinations を個別の destCalendarId ペアに展開する
+ * destinations / destCalendarIds / destCalendarId の後方互換あり
  */
 function getSyncPairs() {
   var raw = getSyncPairsRaw();
   var expanded = [];
   raw.forEach(function(pair) {
-    var destIds = pair.destCalendarIds || [pair.destCalendarId];
-    destIds.forEach(function(destId) {
+    var dests;
+    if (pair.destinations && pair.destinations.length > 0) {
+      dests = pair.destinations.map(function(d) {
+        return {
+          calendarId: d.calendarId,
+          eventTitle: d.eventTitle != null ? d.eventTitle : pair.eventTitle,
+          eventColor: d.eventColor != null ? d.eventColor : pair.eventColor,
+        };
+      });
+    } else {
+      var ids = pair.destCalendarIds || (pair.destCalendarId ? [pair.destCalendarId] : []);
+      dests = ids.map(function(id) {
+        return { calendarId: id, eventTitle: pair.eventTitle, eventColor: pair.eventColor };
+      });
+    }
+    dests.forEach(function(dest) {
       expanded.push({
-        name: pair.name + (destIds.length > 1 ? ' → ' + destId.substring(0, 8) : ''),
+        name: pair.name + (dests.length > 1 ? ' → ' + dest.calendarId.substring(0, 8) : ''),
         sourceCalendarId: pair.sourceCalendarId,
-        destCalendarId: destId,
-        eventTitle: pair.eventTitle,
-        eventColor: pair.eventColor,
+        destCalendarId: dest.calendarId,
+        eventTitle: dest.eventTitle,
+        eventColor: dest.eventColor,
       });
     });
   });
