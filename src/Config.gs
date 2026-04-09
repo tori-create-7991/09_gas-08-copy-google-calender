@@ -45,6 +45,32 @@ function getSyncPairsRaw() {
 // --- SYNC_PAIRS_END ---
 
 /**
+ * 招待イベントの自動振り分け設定を取得する
+ *
+ * CI デプロイ時は GitHub Secret INVITE_ROUTING_JSON の値で自動置換されます。
+ * @returns {Object} 振り分け設定
+ */
+// --- INVITE_ROUTING_START ---
+function getInviteRoutingConfig() {
+  return {
+    enabled: false,
+    sourceCalendarId: 'primary',
+    daysBefore: 0,
+    daysAfter: 14,
+    // rules は上から順に評価され、最初にマッチしたものに振り分けます
+    rules: [
+      // 例: 社外の招待は別カレンダーへ
+      // {
+      //   name: 'external',
+      //   destCalendarId: 'your-calendar-id@group.calendar.google.com',
+      //   organizerIsSelf: false,
+      // },
+    ],
+  };
+}
+// --- INVITE_ROUTING_END ---
+
+/**
  * destinations を個別の destCalendarId ペアに展開する
  * destinations / destCalendarIds / destCalendarId の後方互換あり
  */

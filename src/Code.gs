@@ -55,6 +55,17 @@ function syncCalendars() {
 function syncSinglePair(pair, commonConfig) {
   const result = { created: 0, updated: 0, deleted: 0, skipped: 0 };
 
+  // 招待イベントの振り分け（必要なら同期前に実行）
+  try {
+    const routingConfig = getInviteRoutingConfig();
+    if (routingConfig && routingConfig.enabled) {
+      routeInvites();
+    }
+  } catch (e) {
+    // 振り分け失敗で同期全体を止めない
+    log('招待振り分けでエラー: ' + e.message);
+  }
+
   // カレンダーを取得
   const sourceCalendar = CalendarApp.getCalendarById(pair.sourceCalendarId);
   const destCalendar = CalendarApp.getCalendarById(pair.destCalendarId);
