@@ -52,6 +52,7 @@ jobs:
               if (d.eventColor != null) lines.push(I3 + "eventColor: " + d.eventColor + ",");
               if (d.showAsBusy != null) lines.push(I3 + "showAsBusy: " + d.showAsBusy + ",");
               if (d.includeOriginalLink != null) lines.push(I3 + "includeOriginalLink: " + d.includeOriginalLink + ",");
+              if (d.inviteCopy != null) lines.push(I3 + "inviteCopy: " + JSON.stringify(d.inviteCopy, null, 2).split(\"\\n\").map(function(l){return I3 + l;}).join(\"\\n\").slice(I3.length) + ",");
               lines.push(I2 + "}");
               return lines.join("\n");
             }

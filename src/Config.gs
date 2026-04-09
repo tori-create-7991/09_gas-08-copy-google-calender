@@ -120,6 +120,7 @@ function getSyncPairs() {
           eventColor: d.eventColor != null ? d.eventColor : pair.eventColor,
           showAsBusy: d.showAsBusy,
           includeOriginalLink: d.includeOriginalLink,
+          inviteCopy: d.inviteCopy,
         };
       });
     } else {
@@ -137,6 +138,7 @@ function getSyncPairs() {
         eventColor: dest.eventColor,
         showAsBusy: dest.showAsBusy,
         includeOriginalLink: dest.includeOriginalLink,
+        inviteCopy: dest.inviteCopy,
       });
     });
   });

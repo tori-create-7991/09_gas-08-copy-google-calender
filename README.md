@@ -232,6 +232,44 @@ Google カレンダーの「招待イベント」は、受け取ると `primary`
 }
 ```
 
+### ペアごと（コピー先ごと）に設定したい場合（推奨）
+
+`SYNC_PAIRS_JSON` の `destinations[]` に `inviteCopy` を追加できます。これを使うと **8ペアのうち特定のコピー先だけ**招待コピーの判定が走ります。
+
+例（あるコピー先だけ招待コピーを有効化）:
+
+```json
+[
+  {
+    "name": "仕事カレンダー",
+    "sourceCalendarId": "work@group.calendar.google.com",
+    "eventTitle": "予定あり",
+    "eventColor": 8,
+    "destinations": [
+      {
+        "calendarId": "6147da...@group.calendar.google.com",
+        "inviteCopy": {
+          "enabled": true,
+          "sourceCalendarId": "primary",
+          "daysBefore": 0,
+          "daysAfter": 30,
+          "eventTitle": "予定あり",
+          "eventColor": 8,
+          "showAsBusy": true,
+          "includeOriginalLink": false,
+          "rules": [
+            { "name": "from-givery", "organizerEmailEndsWith": "@givery.co.jp" },
+            { "name": "from-ms", "organizerEmailEndsWith": "@ms-engineer.jp", "includeOriginalLink": true }
+          ]
+        }
+      }
+    ]
+  }
+]
+```
+
+> **Note**: `inviteCopy` を1つでも設定すると、グローバルの `INVITE_COPY_JSON` は使われず、`inviteCopy` が優先されます。
+
 ### 実行方法
 
 - `syncCalendars()` 実行時に `enabled=true` なら **同期開始時に1回だけ** `copyInvitesByRules()` が動きます

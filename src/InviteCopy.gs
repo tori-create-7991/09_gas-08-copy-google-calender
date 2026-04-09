@@ -17,10 +17,13 @@ function copyInvitesByRules() {
     Logger.log('Invite copy is disabled.');
     return;
   }
+  copyInvitesByRulesWithConfig(cfg);
+}
 
+function copyInvitesByRulesWithConfig(cfg) {
   var sourceCalendarId = cfg.sourceCalendarId || 'primary';
-  var destCalendarId = cfg.destCalendarId;
-  if (!destCalendarId) throw new Error('destCalendarId is required in invite copy config');
+  var destCalendarId = cfg.defaultDestCalendarId;
+  if (!destCalendarId) throw new Error('defaultDestCalendarId is required in invite copy config');
 
   var now = new Date();
   var start = new Date(now);
@@ -55,19 +58,21 @@ function copyInvitesByRules() {
       var ev = items[i];
       if (!ev || !ev.id) continue;
 
-      if (!matchesInviteCopyRuleApi(ev, cfg)) {
+      var match = findInviteCopyRuleMatchApi(ev, cfg);
+      if (!match) {
         skipped++;
         continue;
       }
 
-      var tag = buildInviteCopyTag(cfg, ev, sourceCalendarId);
-      if (hasInviteCopyAlready(destCalendarId, tag, timeMin, timeMax)) {
+      var effectiveDestCalendarId = match.destCalendarId || destCalendarId;
+      var tag = buildInviteCopyTag(cfg, match.ruleName, ev, sourceCalendarId, effectiveDestCalendarId);
+      if (hasInviteCopyAlready(effectiveDestCalendarId, tag, timeMin, timeMax)) {
         skipped++;
         continue;
       }
 
       try {
-        Calendar.Events.insert(buildInviteCopyEventResource(cfg, ev, tag), destCalendarId);
+        Calendar.Events.insert(buildInviteCopyEventResource(cfg, match, ev, tag), effectiveDestCalendarId);
         created++;
         Utilities.sleep(sleepMs);
       } catch (e) {
@@ -82,31 +87,43 @@ function copyInvitesByRules() {
   Logger.log('Invite copy done. created=' + created + ' skipped=' + skipped + ' failed=' + failed);
 }
 
-function matchesInviteCopyRuleApi(ev, cfg) {
-  // organizer domain filter
-  if (Array.isArray(cfg.organizerEmailEndsWithAny) && cfg.organizerEmailEndsWithAny.length > 0) {
+function findInviteCopyRuleMatchApi(ev, cfg) {
+  var rules = Array.isArray(cfg.rules) ? cfg.rules : [];
+  for (var i = 0; i < rules.length; i++) {
+    var rule = rules[i] || {};
+    if (!rule.organizerEmailEndsWith && !rule.titleContains) continue;
+    if (!matchesInviteCopyRuleApi(ev, rule)) continue;
+    return {
+      ruleName: rule.name || ('rule' + (i + 1)),
+      destCalendarId: rule.destCalendarId,
+      eventTitle: rule.eventTitle,
+      eventColor: rule.eventColor,
+      showAsBusy: rule.showAsBusy,
+      includeOriginalLink: rule.includeOriginalLink,
+    };
+  }
+  return null;
+}
+
+function matchesInviteCopyRuleApi(ev, rule) {
+  if (rule.organizerEmailEndsWith) {
     var orgEmail = (ev.organizer && ev.organizer.email) ? String(ev.organizer.email) : '';
-    if (!orgEmail) return false;
-    var ok = cfg.organizerEmailEndsWithAny.some(function(suf) {
-      suf = String(suf);
-      return suf && orgEmail.slice(-suf.length) === suf;
-    });
-    if (!ok) return false;
+    var suf = String(rule.organizerEmailEndsWith);
+    if (!orgEmail || !suf || orgEmail.slice(-suf.length) !== suf) return false;
   }
-
-  // title contains (optional)
-  if (cfg.titleContains) {
+  if (rule.titleContains) {
     var summary = ev.summary ? String(ev.summary) : '';
-    if (summary.indexOf(String(cfg.titleContains)) === -1) return false;
+    if (summary.indexOf(String(rule.titleContains)) === -1) return false;
   }
-
   return true;
 }
 
-function buildInviteCopyTag(cfg, ev, sourceCalendarId) {
+function buildInviteCopyTag(cfg, ruleName, ev, sourceCalendarId, destCalendarId) {
   var startIso = (ev.start && (ev.start.dateTime || ev.start.date)) ? String(ev.start.dateTime || ev.start.date) : '';
   return '[InviteCopy]' +
+    ' Rule:' + String(ruleName || '') +
     ' Source:' + sourceCalendarId +
+    ' Dest:' + destCalendarId +
     ' SourceID:' + ev.id +
     (startIso ? (' Start:' + startIso) : '');
 }
@@ -129,8 +146,8 @@ function hasInviteCopyAlready(destCalendarId, tag, timeMin, timeMax) {
   }
 }
 
-function buildInviteCopyEventResource(cfg, sourceEv, tag) {
-  var summary = (cfg.eventTitle != null) ? String(cfg.eventTitle) : '';
+function buildInviteCopyEventResource(cfg, match, sourceEv, tag) {
+  var summary = (match && match.eventTitle != null) ? String(match.eventTitle) : ((cfg.eventTitle != null) ? String(cfg.eventTitle) : '');
   if (summary === '') {
     summary = sourceEv.summary ? String(sourceEv.summary) : '予定あり';
   }
@@ -143,15 +160,18 @@ function buildInviteCopyEventResource(cfg, sourceEv, tag) {
     extendedProperties: { private: { inviteCopyTag: tag } },
   };
 
-  if (cfg.eventColor != null) {
-    resource.colorId = String(cfg.eventColor);
+  var color = (match && match.eventColor != null) ? match.eventColor : cfg.eventColor;
+  if (color != null) {
+    resource.colorId = String(color);
   }
 
-  if (cfg.showAsBusy != null) {
-    resource.transparency = cfg.showAsBusy ? 'opaque' : 'transparent';
+  var showAsBusy = (match && match.showAsBusy != null) ? match.showAsBusy : cfg.showAsBusy;
+  if (showAsBusy != null) {
+    resource.transparency = showAsBusy ? 'opaque' : 'transparent';
   }
 
-  if (cfg.includeOriginalLink) {
+  var includeOriginalLink = (match && match.includeOriginalLink != null) ? match.includeOriginalLink : cfg.includeOriginalLink;
+  if (includeOriginalLink) {
     var htmlLink = sourceEv.htmlLink ? String(sourceEv.htmlLink) : '';
     if (htmlLink) {
       resource.description = tag + '\n\n元の予定: ' + htmlLink;
