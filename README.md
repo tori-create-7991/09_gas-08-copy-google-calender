@@ -88,6 +88,7 @@ clasp push
    - `SCRIPT_ID`: GASのスクリプトID
    - `CLASPRC_JSON`: `~/.clasprc.json` の内容をそのまま貼り付け
    - `SYNC_PAIRS_JSON`: 同期ペア設定のJSON（下記参照）
+   - `INVITE_ROUTING_JSON`: 招待イベント振り分け設定のJSON（下記参照）
 
 4. **`SYNC_PAIRS_JSON` の設定**
 
@@ -141,6 +142,54 @@ clasp push
    > **Note**: `SYNC_PAIRS_JSON` が未設定の場合、`src/Config.gs` のデフォルト値がそのまま使われます。
 
 5. **mainブランチにpushすると自動デプロイ**
+
+## 招待イベントの自動振り分け（Events.move）
+
+Google カレンダーの「招待イベント」は、受け取ると `primary`（メイン）に入ってしまうことがあります。\n
+このスクリプトでは **Calendar API の `Events.move`** を使い、条件に一致する招待イベントを別カレンダーへ自動振り分けできます（イベントIDが維持されるため、主催者側の変更も追従します）。
+
+### 前提（必須）
+
+- GAS エディタの **「サービス」→「高度な Google サービス」**で **Calendar API** を有効化
+- 併せて **Google Cloud Console 側の「Google Calendar API」**も有効化
+
+### `INVITE_ROUTING_JSON` の設定例
+
+```json
+{
+  "enabled": true,
+  "sourceCalendarId": "primary",
+  "daysBefore": 0,
+  "daysAfter": 14,
+  "rules": [
+    {
+      "name": "external-invites",
+      "destCalendarId": "your-target@group.calendar.google.com",
+      "organizerIsSelf": false
+    }
+  ]
+}
+```
+
+#### ルールの評価
+
+- `rules` は **上から順に**評価し、**最初にマッチしたルール**の `destCalendarId` に移動します。
+
+#### ルールで使える条件（現状）
+
+- `organizerIsSelf` (boolean)
+- `organizerEmailContains` (string)
+- `organizerEmailEndsWith` (string)
+- `attendeeIsSelf` (boolean)
+- `attendeeEmailEquals` (string)
+- `attendeeEmailContains` (string)
+- `attendeeEmailEndsWith` (string)
+- `summaryContains` (string)
+
+### 実行方法
+
+- 手動: `routeInvites()` を実行
+- 自動: `setupInviteRoutingTrigger()` を実行（15分ごと）
 
 ### 2. カレンダーIDの確認
 
