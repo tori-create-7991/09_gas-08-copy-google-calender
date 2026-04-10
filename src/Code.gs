@@ -21,26 +21,7 @@ function syncCalendars() {
   log('===== カレンダー同期開始 =====');
   log('同期ペア数: ' + syncPairs.length);
 
-  // 招待イベントの振り分け（必要なら同期開始時に1回だけ実行）
-  try {
-    const routingConfig = getInviteRoutingConfig();
-    if (routingConfig && routingConfig.enabled) {
-      routeInvites();
-    }
-  } catch (e) {
-    // 振り分け失敗で同期全体を止めない
-    log('招待振り分けでエラー: ' + e.message);
-  }
-
-  // 招待イベントのコピー（必要なら同期開始時に1回だけ実行）
-  try {
-    const perDest = getInviteCopyConfigsFromSyncPairs(syncPairs);
-    perDest.forEach(cfg => {
-      if (cfg && cfg.enabled) copyInvitesByRules(cfg);
-    });
-  } catch (e) {
-    log('招待コピーでエラー: ' + e.message);
-  }
+  runPreSyncCalendarTasks(syncPairs);
 
   let totalCreated = 0;
   let totalUpdated = 0;

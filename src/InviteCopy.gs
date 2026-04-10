@@ -16,22 +16,12 @@ function copyInvitesByRules(cfg) {
     Logger.log('Invite copy is disabled.');
     return;
   }
-  copyInvitesByRulesWithConfig(cfg);
-}
 
-function copyInvitesByRulesWithConfig(cfg) {
   var sourceCalendarId = cfg.sourceCalendarId || 'primary';
   var destCalendarId = cfg.defaultDestCalendarId;
-  if (!destCalendarId) throw new Error('defaultDestCalendarId is required in invite copy config');
+  if (!destCalendarId) throw new Error('defaultDestCalendarId is required in invite copy config (usually the same as destination calendarId)');
 
-  var now = new Date();
-  var start = new Date(now);
-  start.setDate(start.getDate() - (cfg.daysBefore || 0));
-  var end = new Date(now);
-  end.setDate(end.getDate() + (cfg.daysAfter || 14));
-
-  var timeMin = start.toISOString();
-  var timeMax = end.toISOString();
+  var range = calendarTimeRangeIso(cfg);
 
   var maxCreates = (cfg.maxCreatesPerRun != null) ? cfg.maxCreatesPerRun : 50;
   var sleepMs = (cfg.sleepMsBetweenCreates != null) ? cfg.sleepMsBetweenCreates : 150;
@@ -40,18 +30,8 @@ function copyInvitesByRulesWithConfig(cfg) {
   var skipped = 0;
   var failed = 0;
 
-  var pageToken;
-  do {
-    var resp = Calendar.Events.list(sourceCalendarId, {
-      timeMin: timeMin,
-      timeMax: timeMax,
-      singleEvents: true,
-      maxResults: 2500,
-      pageToken: pageToken,
-      showDeleted: false,
-    });
-
-    var items = (resp && resp.items) ? resp.items : [];
+  listCalendarEventsPaged(sourceCalendarId, range.timeMin, range.timeMax, function(items) {
+    if (created >= maxCreates) return;
     for (var i = 0; i < items.length; i++) {
       if (created >= maxCreates) break;
       var ev = items[i];
@@ -65,7 +45,7 @@ function copyInvitesByRulesWithConfig(cfg) {
 
       var effectiveDestCalendarId = match.destCalendarId || destCalendarId;
       var tag = buildInviteCopyTag(cfg, match.ruleName, ev, sourceCalendarId, effectiveDestCalendarId);
-      if (hasInviteCopyAlready(effectiveDestCalendarId, tag, timeMin, timeMax)) {
+      if (hasInviteCopyAlready(effectiveDestCalendarId, tag, range.timeMin, range.timeMax)) {
         skipped++;
         continue;
       }
@@ -79,9 +59,7 @@ function copyInvitesByRulesWithConfig(cfg) {
         Logger.log('invite copy insert failed: ' + ev.id + ' : ' + e);
       }
     }
-
-    pageToken = resp.nextPageToken;
-  } while (pageToken && created < maxCreates);
+  });
 
   Logger.log('Invite copy done. created=' + created + ' skipped=' + skipped + ' failed=' + failed);
 }
@@ -90,8 +68,8 @@ function findInviteCopyRuleMatchApi(ev, cfg) {
   var rules = Array.isArray(cfg.rules) ? cfg.rules : [];
   for (var i = 0; i < rules.length; i++) {
     var rule = rules[i] || {};
-    if (!rule.organizerEmailEndsWith && !rule.titleContains) continue;
-    if (!matchesInviteCopyRuleApi(ev, rule)) continue;
+    if (!ruleHasInviteConditionFields(rule)) continue;
+    if (!matchesInviteEventRuleApi(ev, rule)) continue;
     return {
       ruleName: rule.name || ('rule' + (i + 1)),
       destCalendarId: rule.destCalendarId,
@@ -102,19 +80,6 @@ function findInviteCopyRuleMatchApi(ev, cfg) {
     };
   }
   return null;
-}
-
-function matchesInviteCopyRuleApi(ev, rule) {
-  if (rule.organizerEmailEndsWith) {
-    var orgEmail = (ev.organizer && ev.organizer.email) ? String(ev.organizer.email) : '';
-    var suf = String(rule.organizerEmailEndsWith);
-    if (!orgEmail || !suf || orgEmail.slice(-suf.length) !== suf) return false;
-  }
-  if (rule.titleContains) {
-    var summary = ev.summary ? String(ev.summary) : '';
-    if (summary.indexOf(String(rule.titleContains)) === -1) return false;
-  }
-  return true;
 }
 
 function buildInviteCopyTag(cfg, ruleName, ev, sourceCalendarId, destCalendarId) {
@@ -128,7 +93,6 @@ function buildInviteCopyTag(cfg, ruleName, ev, sourceCalendarId, destCalendarId)
 }
 
 function hasInviteCopyAlready(destCalendarId, tag, timeMin, timeMax) {
-  // reduce cost: query only by privateExtendedProperty
   try {
     var resp = Calendar.Events.list(destCalendarId, {
       timeMin: timeMin,
@@ -140,7 +104,6 @@ function hasInviteCopyAlready(destCalendarId, tag, timeMin, timeMax) {
     });
     return !!(resp && resp.items && resp.items.length > 0);
   } catch (e) {
-    // fallback: if query not allowed, just return false and let duplicates happen rarely
     return false;
   }
 }
@@ -179,4 +142,3 @@ function buildInviteCopyEventResource(cfg, match, sourceEv, tag) {
 
   return resource;
 }
-

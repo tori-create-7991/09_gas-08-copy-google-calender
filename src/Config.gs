@@ -115,6 +115,37 @@ function getSyncPairs() {
 }
 
 /**
+ * destinations[].inviteCopy を正規化した設定一覧にする（同期開始時に inviteCopy 実行用）
+ * @param {Array} syncPairs getSyncPairs() の戻り値
+ */
+function getInviteCopyConfigsFromSyncPairs(syncPairs) {
+  var out = [];
+  (syncPairs || []).forEach(function(pair) {
+    var ic = pair && pair.inviteCopy;
+    if (!ic) return;
+    if (!ic.enabled) return;
+    var destId = pair.destCalendarId;
+    if (!destId) return;
+    var merged = {
+      enabled: true,
+      sourceCalendarId: ic.sourceCalendarId || 'primary',
+      daysBefore: ic.daysBefore != null ? ic.daysBefore : 0,
+      daysAfter: ic.daysAfter != null ? ic.daysAfter : 14,
+      defaultDestCalendarId: destId,
+      eventTitle: ic.eventTitle != null ? ic.eventTitle : '予定あり',
+      eventColor: ic.eventColor,
+      showAsBusy: ic.showAsBusy != null ? ic.showAsBusy : true,
+      includeOriginalLink: ic.includeOriginalLink != null ? ic.includeOriginalLink : false,
+      maxCreatesPerRun: ic.maxCreatesPerRun,
+      sleepMsBetweenCreates: ic.sleepMsBetweenCreates,
+      rules: Array.isArray(ic.rules) ? ic.rules : [],
+    };
+    out.push(merged);
+  });
+  return out;
+}
+
+/**
  * 共通設定を取得する
  * @returns {Object} 共通設定オブジェクト
  */
