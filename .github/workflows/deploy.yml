@@ -41,12 +41,6 @@ jobs:
         env:
           SYNC_PAIRS_JSON: ${{ secrets.SYNC_PAIRS_JSON }}
 
-      - name: Inject invite routing config from secret
-        if: ${{ env.INVITE_ROUTING_JSON != '' }}
-        run: node scripts/inject-invite-routing.js
-        env:
-          INVITE_ROUTING_JSON: ${{ secrets.INVITE_ROUTING_JSON }}
-
       - name: Push to Google Apps Script
         run: clasp push --force
 

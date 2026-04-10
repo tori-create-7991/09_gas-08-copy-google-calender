@@ -11,6 +11,9 @@
  * eventTitle / eventColor を省略するとソース側のデフォルト値が使われる。
  * showAsBusy / includeOriginalLink もコピー先ごとに指定可能（省略で共通設定にフォールバック）。
  *
+ * organizerDestinations（任意）: そのコピー先について、主催者などの条件で別カレンダーへコピー先を切り替える。
+ * 通常の同期ループ内で Calendar API の Events.get により主催者を判定します（Events.move は使いません）。
+ *
  * 後方互換: destCalendarId（単数）/ destCalendarIds（配列）も引き続き使用可能。
  *
  * CI デプロイ時は GitHub Secret SYNC_PAIRS_JSON の値で自動置換されます。
@@ -28,7 +31,21 @@ function getSyncPairsRaw() {
       eventColor: 8,
       destinations: [
         { calendarId: 'primary' },
-        { calendarId: 'shared@group.calendar.google.com', eventTitle: '外出', eventColor: 6, showAsBusy: true, includeOriginalLink: false },
+        {
+          calendarId: 'shared@group.calendar.google.com',
+          eventTitle: '外出',
+          eventColor: 6,
+          showAsBusy: true,
+          includeOriginalLink: false,
+          // 例: 社外ドメイン主催のときだけ別カレンダーへ
+          // organizerDestinations: [
+          //   {
+          //     destCalendarId: 'other@group.calendar.google.com',
+          //     organizerEmailEndsWith: '@external.example.com',
+          //     eventTitle: '予定あり',
+          //   },
+          // ],
+        },
       ],
     },
     {
@@ -43,34 +60,6 @@ function getSyncPairsRaw() {
   ];
 }
 // --- SYNC_PAIRS_END ---
-
-/**
- * 招待イベントの自動振り分け設定を取得する
- *
- * CI デプロイ時は GitHub Secret INVITE_ROUTING_JSON の値で自動置換されます。
- * @returns {Object} 振り分け設定
- */
-// --- INVITE_ROUTING_START ---
-function getInviteRoutingConfig() {
-  return {
-    enabled: false,
-    sourceCalendarId: 'primary',
-    daysBefore: 0,
-    daysAfter: 14,
-    // rules は上から順に評価され、最初にマッチしたものに振り分けます
-    rules: [
-      // 例: 社外の招待は別カレンダーへ
-      // {
-      //   name: 'external',
-      //   destCalendarId: 'your-calendar-id@group.calendar.google.com',
-      //   organizerIsSelf: false,
-      // },
-    ],
-  };
-}
-// --- INVITE_ROUTING_END ---
-
-// 招待イベントのコピー（予定あり化）は `SYNC_PAIRS_JSON.destinations[].inviteCopy` で設定します。
 
 /**
  * destinations を個別の destCalendarId ペアに展開する
@@ -89,7 +78,7 @@ function getSyncPairs() {
           eventColor: d.eventColor != null ? d.eventColor : pair.eventColor,
           showAsBusy: d.showAsBusy,
           includeOriginalLink: d.includeOriginalLink,
-          inviteCopy: d.inviteCopy,
+          organizerDestinations: d.organizerDestinations,
         };
       });
     } else {
@@ -107,42 +96,11 @@ function getSyncPairs() {
         eventColor: dest.eventColor,
         showAsBusy: dest.showAsBusy,
         includeOriginalLink: dest.includeOriginalLink,
-        inviteCopy: dest.inviteCopy,
+        organizerDestinations: dest.organizerDestinations,
       });
     });
   });
   return expanded;
-}
-
-/**
- * destinations[].inviteCopy を正規化した設定一覧にする（同期開始時に inviteCopy 実行用）
- * @param {Array} syncPairs getSyncPairs() の戻り値
- */
-function getInviteCopyConfigsFromSyncPairs(syncPairs) {
-  var out = [];
-  (syncPairs || []).forEach(function(pair) {
-    var ic = pair && pair.inviteCopy;
-    if (!ic) return;
-    if (!ic.enabled) return;
-    var destId = pair.destCalendarId;
-    if (!destId) return;
-    var merged = {
-      enabled: true,
-      sourceCalendarId: ic.sourceCalendarId || 'primary',
-      daysBefore: ic.daysBefore != null ? ic.daysBefore : 0,
-      daysAfter: ic.daysAfter != null ? ic.daysAfter : 14,
-      defaultDestCalendarId: destId,
-      eventTitle: ic.eventTitle != null ? ic.eventTitle : '予定あり',
-      eventColor: ic.eventColor,
-      showAsBusy: ic.showAsBusy != null ? ic.showAsBusy : true,
-      includeOriginalLink: ic.includeOriginalLink != null ? ic.includeOriginalLink : false,
-      maxCreatesPerRun: ic.maxCreatesPerRun,
-      sleepMsBetweenCreates: ic.sleepMsBetweenCreates,
-      rules: Array.isArray(ic.rules) ? ic.rules : [],
-    };
-    out.push(merged);
-  });
-  return out;
 }
 
 /**

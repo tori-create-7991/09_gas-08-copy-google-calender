@@ -1,6 +1,6 @@
 /**
- * Calendar API の events リソースに対する「招待用ルール」判定
- * InviteRouting / InviteCopy で共通利用
+ * Calendar API の events リソースに対するルール判定
+ * organizerDestinations（主催者でコピー先切替）で利用
  */
 
 function matchesInviteEventRuleApi(ev, rule) {
