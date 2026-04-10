@@ -90,6 +90,7 @@ clasp push
 
 3. **GitHubリポジトリのSecretsを設定**
    - `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
+   - 必要なのは次の **3つだけ** です（`INVITE_ROUTING_JSON` などは不要・未使用）。
    - `SCRIPT_ID`: GASのスクリプトID
    - `CLASPRC_JSON`: `~/.clasprc.json` の内容をそのまま貼り付け
    - `SYNC_PAIRS_JSON`: 同期ペア設定のJSON（下記参照）
