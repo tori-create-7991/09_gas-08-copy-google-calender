@@ -15,11 +15,16 @@
 
 ```
 ├── src/
-│   ├── Code.gs          # メインスクリプト
-│   ├── Config.gs        # 設定ファイル
-│   └── appsscript.json  # GAS設定
-├── .github/workflows/
-│   └── deploy.yml       # 自動デプロイ設定
+│   ├── Code.gs               # メイン同期
+│   ├── Config.gs             # 設定
+│   ├── Events.gs             # 作成・更新・説明文
+│   ├── OrganizerRouting.gs   # 主催者でコピー先切替（任意）
+│   ├── InviteRuleMatching.gs # ルール判定（Calendar API イベント用）
+│   ├── Utils.gs / Debug.gs / Triggers.gs
+│   └── appsscript.json
+├── scripts/
+│   └── inject-sync-pairs.js  # CI で SYNC_PAIRS_JSON を注入
+├── .github/workflows/deploy.yml
 ├── package.json
 └── README.md
 ```
@@ -85,12 +90,10 @@ clasp push
 
 3. **GitHubリポジトリのSecretsを設定**
    - `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
+   - 必要なのは次の **3つだけ** です（`INVITE_ROUTING_JSON` などは不要・未使用）。
    - `SCRIPT_ID`: GASのスクリプトID
    - `CLASPRC_JSON`: `~/.clasprc.json` の内容をそのまま貼り付け
    - `SYNC_PAIRS_JSON`: 同期ペア設定のJSON（下記参照）
-   - `INVITE_ROUTING_JSON`: 招待イベント振り分け設定のJSON（下記参照）
-   - （推奨）`SYNC_PAIRS_JSON` の `destinations[].inviteCopy`: 招待イベントコピー（予定あり化）設定（下記参照）
-   - `INVITE_ROUTING_JSON`: 招待イベント振り分け設定のJSON（下記参照）
 
 4. **`SYNC_PAIRS_JSON` の設定**
 
@@ -140,113 +143,45 @@ clasp push
    | `eventColor` | | このコピー先専用の色（省略でソース側のデフォルトを使用） |
    | `showAsBusy` | | このコピー先を「予定あり（busy）」として表示するか（省略で共通設定の `SHOW_AS_BUSY` を使用） |
    | `includeOriginalLink` | | 元の予定リンクを説明文に含めるか（省略で共通設定の `INCLUDE_ORIGINAL_LINK` を使用） |
+   | `organizerDestinations` | | （任意）主催者などの条件で **別カレンダーへコピー先を切り替える**ルール配列（下記） |
 
    > **Note**: `SYNC_PAIRS_JSON` が未設定の場合、`src/Config.gs` のデフォルト値がそのまま使われます。
 
 5. **mainブランチにpushすると自動デプロイ**
 
-## 招待イベントの自動振り分け（Events.move）
+## 主催者でコピー先を切り替える（`organizerDestinations`）
 
-Google カレンダーの「招待イベント」は、受け取ると `primary`（メイン）に入ってしまうことがあります。\n
-このスクリプトでは **Calendar API の `Events.move`** を使い、条件に一致する招待イベントを別カレンダーへ自動振り分けできます（イベントIDが維持されるため、主催者側の変更も追従します）。
+通常の同期（`syncSinglePair`）のなかで、ソースの各イベントについて **Calendar API の `Events.get`** で主催者・参加者・タイトルを取得し、**上から順に**ルールと照合します。最初にマッチしたルールの `destCalendarId` に、そのイベントのコピーを作成・更新します（`Events.move` は使いません）。
 
 ### 前提（必須）
 
 - GAS エディタの **「サービス」→「高度な Google サービス」**で **Calendar API** を有効化
 - 併せて **Google Cloud Console 側の「Google Calendar API」**も有効化
 
-### `INVITE_ROUTING_JSON` の設定例
+### 設定例
 
 ```json
 {
-  "enabled": true,
-  "sourceCalendarId": "primary",
-  "daysBefore": 0,
-  "daysAfter": 14,
-  "rules": [
+  "calendarId": "default-dest@group.calendar.google.com",
+  "eventTitle": "予定あり",
+  "organizerDestinations": [
     {
-      "name": "external-invites",
-      "destCalendarId": "your-target@group.calendar.google.com",
-      "organizerIsSelf": false
+      "destCalendarId": "external-block@group.calendar.google.com",
+      "organizerEmailEndsWith": "@partner.example.com",
+      "eventTitle": "予定あり"
     }
   ]
 }
 ```
 
-#### ルールの評価
+- `calendarId` は **マッチしなかったとき**の既定のコピー先です。
+- ルール内の `destCalendarId` は **マッチしたとき**のコピー先です（省略時は `calendarId` と同じ扱い）。
 
-- `rules` は **上から順に**評価し、**最初にマッチしたルール**の `destCalendarId` に移動します。
+#### ルールで使える条件
 
-#### ルールで使える条件（現状）
+`organizerIsSelf`, `organizerEmailContains`, `organizerEmailEndsWith`, `attendeeIsSelf`, `attendeeEmailEquals`, `attendeeEmailContains`, `attendeeEmailEndsWith`, `summaryContains`, `titleContains`（いずれか1つ以上必須）
 
-- `organizerIsSelf` (boolean)
-- `organizerEmailContains` (string)
-- `organizerEmailEndsWith` (string)
-- `attendeeIsSelf` (boolean)
-- `attendeeEmailEquals` (string)
-- `attendeeEmailContains` (string)
-- `attendeeEmailEndsWith` (string)
-- `summaryContains` (string)
-
-### 実行方法
-
-- 手動: `routeInvites()` を実行
-- 自動: `setupInviteRoutingTrigger()` を実行（15分ごと）
-
-## 招待イベントのコピー（予定あり化）
-
-外部主催の招待（あなたが参加者のイベント）は、Calendar API の `Events.move` が失敗することがあります。\n
-その場合でも「メイン（primary）に招待が入る」こと自体は変えられないため、代替として **招待を条件に応じて別カレンダーへ「予定あり」としてコピー**できます。
-
-### 前提（必須）
-
-- GAS エディタの **「サービス」→「高度な Google サービス」**で **Calendar API** を有効化
-- 併せて **Google Cloud Console 側の「Google Calendar API」**も有効化
-
-### 設定例（主催者ドメインで判定）
-
-### ペアごと（コピー先ごと）に設定したい場合（推奨）
-
-`SYNC_PAIRS_JSON` の `destinations[]` に `inviteCopy` を追加できます。これを使うと **8ペアのうち特定のコピー先だけ**招待コピーの判定が走ります。
-
-例（あるコピー先だけ招待コピーを有効化）:
-
-```json
-[
-  {
-    "name": "仕事カレンダー",
-    "sourceCalendarId": "work@group.calendar.google.com",
-    "eventTitle": "予定あり",
-    "eventColor": 8,
-    "destinations": [
-      {
-        "calendarId": "6147da...@group.calendar.google.com",
-        "inviteCopy": {
-          "enabled": true,
-          "sourceCalendarId": "primary",
-          "daysBefore": 0,
-          "daysAfter": 30,
-          "eventTitle": "予定あり",
-          "eventColor": 8,
-          "showAsBusy": true,
-          "includeOriginalLink": false,
-          "rules": [
-            { "name": "from-givery", "organizerEmailEndsWith": "@givery.co.jp" },
-            { "name": "from-ms", "organizerEmailEndsWith": "@ms-engineer.jp", "includeOriginalLink": true }
-          ]
-        }
-      }
-    ]
-  }
-]
-```
-
-> **Note**: 招待コピー設定は `SYNC_PAIRS_JSON.destinations[].inviteCopy` に統一しました。
-
-### 実行方法
-
-- `syncCalendars()` 実行時に `enabled=true` なら **同期開始時に1回だけ** `copyInvitesByRules()` が動きます
-- 単体で動かす場合は `copyInvitesByRules()` を手動実行
+ルールごとに `eventTitle` / `eventColor` / `showAsBusy` / `includeOriginalLink` を上書きできます。
 
 ### 2. カレンダーIDの確認
 
@@ -318,6 +253,7 @@ function getSyncPairsRaw() {
 | `calendarId` | コピー先カレンダーID | `'primary'` |
 | `eventTitle` | このコピー先専用のタイトル（省略でデフォルト値） | `'外出'` |
 | `eventColor` | このコピー先専用の色（省略でデフォルト値） | `6` |
+| `organizerDestinations` | 主催者条件で別カレンダーへ振り分け（任意） | 上記セクション参照 |
 
 ## イベントカラー一覧
 
@@ -341,7 +277,7 @@ function getSyncPairsRaw() {
 |---------|------|-----------|
 | `DAYS_BEFORE` | 過去何日分を同期 | `7` |
 | `DAYS_AFTER` | 未来何日分を同期 | `30` |
-| `COPY_ALL_DAY_EVENTS` | 終日イベントもコピー | `true` |
+| `COPY_ALL_DAY_EVENTS` | 終日イベントもコピー | `false` |
 | `DEBUG_MODE` | デバッグログを出力 | `false` |
 
 ## 便利な関数

@@ -21,27 +21,6 @@ function syncCalendars() {
   log('===== カレンダー同期開始 =====');
   log('同期ペア数: ' + syncPairs.length);
 
-  // 招待イベントの振り分け（必要なら同期開始時に1回だけ実行）
-  try {
-    const routingConfig = getInviteRoutingConfig();
-    if (routingConfig && routingConfig.enabled) {
-      routeInvites();
-    }
-  } catch (e) {
-    // 振り分け失敗で同期全体を止めない
-    log('招待振り分けでエラー: ' + e.message);
-  }
-
-  // 招待イベントのコピー（必要なら同期開始時に1回だけ実行）
-  try {
-    const perDest = getInviteCopyConfigsFromSyncPairs(syncPairs);
-    perDest.forEach(cfg => {
-      if (cfg && cfg.enabled) copyInvitesByRules(cfg);
-    });
-  } catch (e) {
-    log('招待コピーでエラー: ' + e.message);
-  }
-
   let totalCreated = 0;
   let totalUpdated = 0;
   let totalDeleted = 0;
@@ -72,25 +51,34 @@ function syncCalendars() {
 
 /**
  * 単一のカレンダーペアを同期する
+ * （オプションで主催者ルールによりコピー先カレンダーを切り替え）
  */
 function syncSinglePair(pair, commonConfig) {
   const result = { created: 0, updated: 0, deleted: 0, skipped: 0 };
 
-  // カレンダーを取得
   const sourceCalendar = CalendarApp.getCalendarById(pair.sourceCalendarId);
-  const destCalendar = CalendarApp.getCalendarById(pair.destCalendarId);
-
   if (!sourceCalendar) {
     throw new Error('ソースカレンダーが見つかりません: ' + pair.sourceCalendarId);
   }
-  if (!destCalendar) {
+
+  const routingDestIds = getOrganizerRoutingDestinationIds(pair);
+  const destIds = Object.keys(routingDestIds);
+  const destCalendars = {};
+  destIds.forEach(function(id) {
+    const c = CalendarApp.getCalendarById(id);
+    if (c) destCalendars[id] = c;
+  });
+
+  if (!destCalendars[pair.destCalendarId]) {
     throw new Error('コピー先カレンダーが見つかりません: ' + pair.destCalendarId);
   }
 
   log('ソース: ' + sourceCalendar.getName());
-  log('コピー先: ' + destCalendar.getName());
+  log('コピー先（既定）: ' + destCalendars[pair.destCalendarId].getName());
+  if (destIds.length > 1) {
+    log('主催者ルート用の参照カレンダー数: ' + destIds.length);
+  }
 
-  // 同期期間を設定
   const now = new Date();
   const startDate = new Date(now);
   startDate.setDate(startDate.getDate() - commonConfig.DAYS_BEFORE);
@@ -100,71 +88,97 @@ function syncSinglePair(pair, commonConfig) {
   endDate.setDate(endDate.getDate() + commonConfig.DAYS_AFTER);
   endDate.setHours(23, 59, 59, 999);
 
-  // このペア用のsyncTagを生成（ソースカレンダーIDを含める）
   const syncTag = commonConfig.SYNC_TAG + '[' + pair.sourceCalendarId + ']';
 
-  // ソースカレンダーの予定を取得
   const sourceEvents = sourceCalendar.getEvents(startDate, endDate);
   debugLog('ソースの予定数: ' + sourceEvents.length, commonConfig);
 
-  // コピー先カレンダーの同期済み予定を取得
-  const destEvents = destCalendar.getEvents(startDate, endDate);
-  const syncedEvents = destEvents.filter(event => {
-    const desc = event.getDescription() || '';
-    return desc.includes(syncTag);
-  });
-  debugLog('同期済み予定数: ' + syncedEvents.length, commonConfig);
+  const sourceEventByKey = new Map();
+  const apiEventCache = {};
 
-  // 同期済み予定をマップ化（ユニークキーで管理）
-  const syncedEventMap = new Map();
-  syncedEvents.forEach(event => {
-    const uniqueKey = extractSourceEventId(event.getDescription(), syncTag);
-    if (uniqueKey) {
-      syncedEventMap.set(uniqueKey, event);
-    }
+  const syncedMaps = {};
+  const allSyncedByDest = {};
+  destIds.forEach(function(destId) {
+    const cal = destCalendars[destId];
+    if (!cal) return;
+    const synced = (cal.getEvents(startDate, endDate) || []).filter(function(event) {
+      const desc = event.getDescription() || '';
+      return desc.indexOf(syncTag) !== -1;
+    });
+    allSyncedByDest[destId] = synced;
+    const m = new Map();
+    synced.forEach(function(event) {
+      const uniqueKey = extractSourceEventId(event.getDescription(), syncTag);
+      if (uniqueKey) m.set(uniqueKey, event);
+    });
+    syncedMaps[destId] = m;
   });
 
-  // ソースイベントのユニークキーセット（繰り返しイベント対応）
   const sourceEventKeys = new Set();
 
-  // 各ソースイベントを処理
-  sourceEvents.forEach(sourceEvent => {
-    // 繰り返しイベント対応: ID + 開始日時でユニークキーを生成
+  sourceEvents.forEach(function(sourceEvent) {
     const startTime = sourceEvent.isAllDayEvent()
       ? sourceEvent.getAllDayStartDate().getTime()
       : sourceEvent.getStartTime().getTime();
     const uniqueKey = sourceEvent.getId() + '_' + startTime;
     sourceEventKeys.add(uniqueKey);
+    sourceEventByKey.set(uniqueKey, sourceEvent);
 
-    // 終日イベントのスキップチェック
     if (sourceEvent.isAllDayEvent() && !commonConfig.COPY_ALL_DAY_EVENTS) {
       result.skipped++;
       return;
     }
 
+    const resolved = resolveOrganizerDestination(pair, sourceEvent, apiEventCache);
+    const destCalendarId = resolved.destCalendarId;
+    const effectivePair = mergePairOverrides(pair, resolved.overrides);
+    const destCalendar = destCalendars[destCalendarId];
+
+    if (!destCalendar) {
+      result.skipped++;
+      debugLog('ルーティング先カレンダーが見つかりません: ' + destCalendarId, commonConfig);
+      return;
+    }
+
+    const syncedEventMap = syncedMaps[destCalendarId] || new Map();
     const existingEvent = syncedEventMap.get(uniqueKey);
 
     if (existingEvent) {
-      if (needsUpdate(sourceEvent, existingEvent, pair, commonConfig, syncTag, uniqueKey)) {
-        updateEvent(existingEvent, sourceEvent, pair, syncTag, uniqueKey, commonConfig);
+      if (needsUpdate(sourceEvent, existingEvent, effectivePair, commonConfig, syncTag, uniqueKey)) {
+        updateEvent(existingEvent, sourceEvent, effectivePair, syncTag, uniqueKey, commonConfig);
         result.updated++;
         debugLog('更新: ' + sourceEvent.getTitle(), commonConfig);
       }
     } else {
-      createEvent(destCalendar, sourceEvent, pair, syncTag, uniqueKey, commonConfig);
+      createEvent(destCalendar, sourceEvent, effectivePair, syncTag, uniqueKey, commonConfig);
       result.created++;
       debugLog('作成: ' + sourceEvent.getTitle(), commonConfig);
     }
   });
 
-  // 削除された予定を検出
-  syncedEvents.forEach(syncedEvent => {
-    const sourceKey = extractSourceEventId(syncedEvent.getDescription(), syncTag);
-    if (sourceKey && !sourceEventKeys.has(sourceKey)) {
-      syncedEvent.deleteEvent();
-      result.deleted++;
-      debugLog('削除: ' + syncedEvent.getTitle(), commonConfig);
-    }
+  destIds.forEach(function(destId) {
+    const cal = destCalendars[destId];
+    if (!cal) return;
+    (allSyncedByDest[destId] || []).forEach(function(syncedEvent) {
+      const sourceKey = extractSourceEventId(syncedEvent.getDescription(), syncTag);
+      if (!sourceKey) return;
+
+      if (!sourceEventKeys.has(sourceKey)) {
+        syncedEvent.deleteEvent();
+        result.deleted++;
+        debugLog('削除: ' + syncedEvent.getTitle(), commonConfig);
+        return;
+      }
+
+      const srcEv = sourceEventByKey.get(sourceKey);
+      if (!srcEv) return;
+      const resolved = resolveOrganizerDestination(pair, srcEv, apiEventCache);
+      if (resolved.destCalendarId !== destId) {
+        syncedEvent.deleteEvent();
+        result.deleted++;
+        debugLog('ルーティング変更のため削除: ' + syncedEvent.getTitle(), commonConfig);
+      }
+    });
   });
 
   log('結果 - 作成:' + result.created + ' 更新:' + result.updated + ' 削除:' + result.deleted);
