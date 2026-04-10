@@ -34,19 +34,10 @@ function syncCalendars() {
 
   // 招待イベントのコピー（必要なら同期開始時に1回だけ実行）
   try {
-    // destination ごとの inviteCopy 設定があればそれを優先
     const perDest = getInviteCopyConfigsFromSyncPairs(syncPairs);
-    if (perDest.length > 0) {
-      perDest.forEach(cfg => {
-        if (cfg && cfg.enabled) copyInvitesByRules(cfg);
-      });
-    } else {
-      // 後方互換: 従来のグローバル設定
-      const inviteCopyConfig = getInviteCopyConfig();
-      if (inviteCopyConfig && inviteCopyConfig.enabled) {
-        copyInvitesByRules(inviteCopyConfig);
-      }
-    }
+    perDest.forEach(cfg => {
+      if (cfg && cfg.enabled) copyInvitesByRules(cfg);
+    });
   } catch (e) {
     log('招待コピーでエラー: ' + e.message);
   }

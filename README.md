@@ -89,7 +89,7 @@ clasp push
    - `CLASPRC_JSON`: `~/.clasprc.json` の内容をそのまま貼り付け
    - `SYNC_PAIRS_JSON`: 同期ペア設定のJSON（下記参照）
    - `INVITE_ROUTING_JSON`: 招待イベント振り分け設定のJSON（下記参照）
-   - `INVITE_COPY_JSON`: 招待イベントコピー（予定あり化）設定のJSON（下記参照）
+   - （推奨）`SYNC_PAIRS_JSON` の `destinations[].inviteCopy`: 招待イベントコピー（予定あり化）設定（下記参照）
    - `INVITE_ROUTING_JSON`: 招待イベント振り分け設定のJSON（下記参照）
 
 4. **`SYNC_PAIRS_JSON` の設定**
@@ -203,34 +203,7 @@ Google カレンダーの「招待イベント」は、受け取ると `primary`
 - GAS エディタの **「サービス」→「高度な Google サービス」**で **Calendar API** を有効化
 - 併せて **Google Cloud Console 側の「Google Calendar API」**も有効化
 
-### `INVITE_COPY_JSON` の設定例（主催者ドメインで判定）
-
-```json
-{
-  "enabled": true,
-  "sourceCalendarId": "primary",
-  "daysBefore": 0,
-  "daysAfter": 30,
-  "defaultDestCalendarId": "your-invite-dest@group.calendar.google.com",
-  "eventTitle": "予定あり",
-  "eventColor": 8,
-  "showAsBusy": true,
-  "includeOriginalLink": false,
-  "rules": [
-    {
-      "name": "from-givery",
-      "destCalendarId": "29c20ada...@group.calendar.google.com",
-      "organizerEmailEndsWith": "@givery.co.jp"
-    },
-    {
-      "name": "from-ms-engineer",
-      "destCalendarId": "e060cc9d...@group.calendar.google.com",
-      "organizerEmailEndsWith": "@ms-engineer.jp",
-      "includeOriginalLink": true
-    }
-  ]
-}
-```
+### 設定例（主催者ドメインで判定）
 
 ### ペアごと（コピー先ごと）に設定したい場合（推奨）
 
@@ -268,7 +241,7 @@ Google カレンダーの「招待イベント」は、受け取ると `primary`
 ]
 ```
 
-> **Note**: `inviteCopy` を1つでも設定すると、グローバルの `INVITE_COPY_JSON` は使われず、`inviteCopy` が優先されます。
+> **Note**: 招待コピー設定は `SYNC_PAIRS_JSON.destinations[].inviteCopy` に統一しました。
 
 ### 実行方法
 

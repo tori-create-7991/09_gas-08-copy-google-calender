@@ -11,8 +11,7 @@
  * - GCP 側の「Google Calendar API」も有効化
  */
 
-function copyInvitesByRules() {
-  var cfg = getInviteCopyConfig();
+function copyInvitesByRules(cfg) {
   if (!cfg || !cfg.enabled) {
     Logger.log('Invite copy is disabled.');
     return;

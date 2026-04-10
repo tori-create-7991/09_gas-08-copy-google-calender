@@ -70,38 +70,7 @@ function getInviteRoutingConfig() {
 }
 // --- INVITE_ROUTING_END ---
 
-/**
- * 招待イベントをコピーして「予定あり」にする設定
- *
- * - 招待（外部主催者）の attendee copy は Events.move が失敗することがあるため、
- *   必要ならコピー方式で特定カレンダーへ転記するための設定です。
- *
- * CI デプロイ時は GitHub Secret INVITE_COPY_JSON の値で自動置換されます。
- */
-// --- INVITE_COPY_START ---
-function getInviteCopyConfig() {
-  return {
-    enabled: false,
-    // 招待が入ってくるカレンダー（通常 primary）
-    sourceCalendarId: 'primary',
-    daysBefore: 0,
-    daysAfter: 30,
-    // デフォルトのコピー先（rule側で destCalendarId を指定しない場合に使用）
-    defaultDestCalendarId: 'ここにコピー先カレンダーIDを入力',
-    eventTitle: '予定あり',
-    eventColor: 8,
-    showAsBusy: true,
-    includeOriginalLink: false,
-    // rules は上から順に評価され、最初にマッチしたものにコピーします
-    // destCalendarId を省略した rule は defaultDestCalendarId にコピーされます
-    rules: [
-      // 例:
-      // { name: 'from-givery', organizerEmailEndsWith: '@givery.co.jp' },
-      // { name: 'from-ms', organizerEmailEndsWith: '@ms-engineer.jp', destCalendarId: '...' , includeOriginalLink: true },
-    ],
-  };
-}
-// --- INVITE_COPY_END ---
+// 招待イベントのコピー（予定あり化）は `SYNC_PAIRS_JSON.destinations[].inviteCopy` で設定します。
 
 /**
  * destinations を個別の destCalendarId ペアに展開する
