@@ -1,5 +1,11 @@
 /**
  * GitHub Actions 用: SYNC_PAIRS_JSON を Config.gs の getSyncPairsRaw に注入する
+ *
+ * 注意: destinations に新フィールドを追加するときは、下記 formatDest() /
+ * formatOrganizerRule() に対応する分岐を追加すること。ローカル編集
+ * (src/Config.gs 直接編集)では動いても、ここが未対応だと SYNC_PAIRS_JSON
+ * 経由のCIデプロイでだけそのフィールドが黙って消える(2026-09発生: descriptionMode)。
+ * 新フィールド追加時は両経路(ローカル編集 / SYNC_PAIRS_JSON経由)で動作確認すること。
  */
 var fs = require('fs');
 
